@@ -51,8 +51,17 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
-          echo "== Building Docker image (disable provenance/SBOM to avoid git usage) =="
+          echo "== Building Docker image from /tmp context (avoid git repo detection) =="
           export DOCKER_BUILDKIT=0
+
+          rm -rf /tmp/dw-build-context
+          mkdir -p /tmp/dw-build-context
+          rsync -a --delete \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude npm-debug.log \
+            ./daily-work-tracker-ios/DW/ /tmp/dw-build-context/
+
           docker build \
             --pull \
             --provenance=false \
@@ -60,8 +69,8 @@ jobs:
             --no-cache \
             --progress=plain \
             --tag "$IMAGE" \
-            --file ./daily-work-tracker-ios/DW/Dockerfile \
-            ./daily-work-tracker-ios/DW
+            --file /tmp/dw-build-context/Dockerfile \
+            /tmp/dw-build-context
 
           echo "== Pushing Docker image =="
           docker push "$IMAGE"
