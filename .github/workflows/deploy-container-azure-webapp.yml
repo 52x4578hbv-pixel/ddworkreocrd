@@ -29,11 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -56,41 +51,16 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
-          echo "== Verifying git repo state on runner =="
-          test -d .git
-          git rev-parse --short HEAD
-          echo "Git repo exists ✅"
-
-          echo "== Docker buildx info =="
-          docker buildx version || true
-          docker buildx inspect --bootstrap || true
-
-          echo "== Running docker buildx build (capturing logs) =="
-          export BUILDX_NO_DEFAULT_ATTESTATIONS=1
-          set +e
-          TMP_LOG="$(mktemp)"
-
-          echo "== Creating .git shim inside build context (for buildx git metadata) =="
-          if [ ! -e ./daily-work-tracker-ios/DW/.git ]; then
-            echo "gitdir: ../../.git" > ./daily-work-tracker-ios/DW/.git
-          fi
-
-          docker buildx build \
-            --push \
-            --provenance=false \
+          echo "== Building Docker image =="
+          docker build \
+            --pull \
             --progress=plain \
             --tag "$IMAGE" \
             --file ./daily-work-tracker-ios/DW/Dockerfile \
-            ./daily-work-tracker-ios/DW 2>&1 | tee "$TMP_LOG"
-          BUILD_EXIT="${PIPESTATUS[0]}"
-          set -e
+            ./daily-work-tracker-ios/DW
 
-          if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "docker buildx failed (exit=$BUILD_EXIT). Capturing tail for annotation..."
-            TAIL="$(tail -n 50 "$TMP_LOG" | tr -d '\r' | tr '\n' ' ' | sed 's/%/%25/g')"
-            echo "::error::docker buildx failed (exit=$BUILD_EXIT). Tail: $TAIL"
-            exit "$BUILD_EXIT"
-          fi
+          echo "== Pushing Docker image =="
+          docker push "$IMAGE"
 
   deploy:
     runs-on: ubuntu-latest
@@ -112,6 +82,11 @@ jobs:
             exit 1
           fi
 
+      - name: Compute image name (lowercase)
+        shell: bash
+        run: |
+          echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Azure login (service principal)
         uses: azure/login@v2
         with:
@@ -131,7 +106,10 @@ jobs:
             az webapp config container set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --docker-custom-image-name "$IMAGE"
+              --docker-custom-image-name "$IMAGE" \
+              --docker-registry-server-url "https://ghcr.io" \
+              --docker-registry-server-user "${{ github.actor }}" \
+              --docker-registry-server-password "${{ secrets.GITHUB_TOKEN }}"
 
             az webapp restart \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
