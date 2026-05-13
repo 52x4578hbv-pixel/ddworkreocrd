@@ -18,7 +18,7 @@ env:
 
   # CHANGE THIS if your Dockerfile is elsewhere
   IMAGE_BUILD_CONTEXT: ./daily-work-tracker-ios/DW
-  DOCKERFILE: ./daily-work-tracker-ios/DW/Dockerfile
+  DOCKERFILE: Dockerfile
 
 jobs:
   build-and-push:
