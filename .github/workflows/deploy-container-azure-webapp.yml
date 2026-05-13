@@ -73,8 +73,9 @@ jobs:
           set -e
 
           if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "::error::docker buildx failed (exit=$BUILD_EXIT). Last output:"
-            tail -n 120 "$TMP_LOG" | sed 's/%/%25/g; s/\r//g; s/\n/%0A/g' | sed 's/::/::\u200b:/g'
+            echo "docker buildx failed (exit=$BUILD_EXIT). Capturing tail for annotation..."
+            TAIL="$(tail -n 50 "$TMP_LOG" | tr -d '\r' | tr '\n' ' ' | sed 's/%/%25/g')"
+            echo "::error::docker buildx failed (exit=$BUILD_EXIT). Tail: $TAIL"
             exit "$BUILD_EXIT"
           fi
 
