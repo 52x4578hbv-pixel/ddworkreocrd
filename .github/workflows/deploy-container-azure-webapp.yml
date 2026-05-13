@@ -50,8 +50,19 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
+
+          echo "== Checking build context and Dockerfile paths =="
+          ls -la ./daily-work-tracker-ios/DW
+          test -f ./daily-work-tracker-ios/DW/Dockerfile
+          echo "Dockerfile exists ✅"
+
+          echo "== Docker buildx info =="
+          docker buildx version || true
+          docker buildx inspect --bootstrap || true
+
           docker buildx build \
             --push \
+            --progress=plain \
             --tag "$IMAGE" \
             --file ./daily-work-tracker-ios/DW/Dockerfile \
             ./daily-work-tracker-ios/DW
