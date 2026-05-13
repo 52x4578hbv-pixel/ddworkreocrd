@@ -51,6 +51,10 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
+          echo "== Configure git safe.directory (prevent /usr/bin/git exit 128) =="
+          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          git config --global --add safe.directory "*" || true
+
           echo "== Building Docker image from /tmp context (avoid git repo detection) =="
           export DOCKER_BUILDKIT=0
 
