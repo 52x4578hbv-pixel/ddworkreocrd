@@ -46,7 +46,7 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.DOCKER_CONTEXT }}
+          context: ${{ env.IMAGE_BUILD_CONTEXT }}
           file: ${{ env.DOCKERFILE }}
           push: true
           tags: |
