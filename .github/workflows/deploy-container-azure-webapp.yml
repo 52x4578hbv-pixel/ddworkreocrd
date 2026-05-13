@@ -51,15 +51,15 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
-          echo "== Ensuring git metadata is available in Docker build context =="
-          if [ ! -e ./daily-work-tracker-ios/DW/.git ]; then
-            echo "gitdir: ../../.git" > ./daily-work-tracker-ios/DW/.git
-          fi
+          echo "== Copying real .git into Docker build context (required by BuildKit provenance/git metadata) =="
+          rm -rf ./daily-work-tracker-ios/DW/.git || true
+          cp -R .git ./daily-work-tracker-ios/DW/.git
 
           echo "== Building Docker image =="
           export BUILDX_NO_DEFAULT_ATTESTATIONS=1
           docker build \
             --pull \
+            --provenance=false \
             --progress=plain \
             --tag "$IMAGE" \
             --file ./daily-work-tracker-ios/DW/Dockerfile \
