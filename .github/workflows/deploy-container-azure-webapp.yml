@@ -46,14 +46,15 @@ jobs:
           echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./daily-work-tracker-ios/DW/Dockerfile
-          push: true
-          provenance: false
-          tags: |
-            ghcr.io/${{ env.REPO }}:${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
+          docker buildx build \
+            --push \
+            --tag "$IMAGE" \
+            --file ./daily-work-tracker-ios/DW/Dockerfile \
+            ./daily-work-tracker-ios/DW
 
   deploy:
     runs-on: ubuntu-latest
