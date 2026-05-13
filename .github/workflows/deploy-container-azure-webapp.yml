@@ -18,7 +18,7 @@ env:
 
   # CHANGE THIS if your Dockerfile is elsewhere
   IMAGE_BUILD_CONTEXT: ./daily-work-tracker-ios/DW
-  DOCKERFILE: Dockerfile
+  DOCKERFILE: ./daily-work-tracker-ios/DW/Dockerfile
 
 jobs:
   build-and-push:
@@ -48,8 +48,8 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.IMAGE_BUILD_CONTEXT }}
-          file: ${{ env.DOCKERFILE }}
+          context: .
+          file: ./daily-work-tracker-ios/DW/Dockerfile
           push: true
           provenance: false
           tags: |
