@@ -56,10 +56,9 @@ jobs:
           cp -R .git ./daily-work-tracker-ios/DW/.git
 
           echo "== Building Docker image =="
-          export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+          export DOCKER_BUILDKIT=0
           docker build \
             --pull \
-            --provenance=false \
             --progress=plain \
             --tag "$IMAGE" \
             --file ./daily-work-tracker-ios/DW/Dockerfile \
