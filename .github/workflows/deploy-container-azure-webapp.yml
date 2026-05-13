@@ -17,7 +17,7 @@ env:
   AZURE_WEBAPP_NAME: ddworkapi-1778615679
 
   # CHANGE THIS if your Dockerfile is elsewhere
-  DOCKER_CONTEXT: ./daily-work-tracker-ios/DW
+  IMAGE_BUILD_CONTEXT: ./daily-work-tracker-ios/DW
   DOCKERFILE: ./daily-work-tracker-ios/DW/Dockerfile
 
 jobs:
