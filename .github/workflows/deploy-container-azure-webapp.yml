@@ -56,6 +56,11 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
+          echo "== Verifying git repo state on runner =="
+          test -d .git
+          git rev-parse --short HEAD
+          echo "Git repo exists ✅"
+
           echo "== Docker buildx info =="
           docker buildx version || true
           docker buildx inspect --bootstrap || true
@@ -64,6 +69,12 @@ jobs:
           export BUILDX_NO_DEFAULT_ATTESTATIONS=1
           set +e
           TMP_LOG="$(mktemp)"
+
+          echo "== Creating .git shim inside build context (for buildx git metadata) =="
+          if [ ! -e ./daily-work-tracker-ios/DW/.git ]; then
+            echo "gitdir: ../../.git" > ./daily-work-tracker-ios/DW/.git
+          fi
+
           docker buildx build \
             --push \
             --provenance=false \
