@@ -24,6 +24,13 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure git safe.directory (before checkout)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          git config --global --add safe.directory "*" || true
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
