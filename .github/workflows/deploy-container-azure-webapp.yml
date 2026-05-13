@@ -51,7 +51,11 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
-          echo "== Copying real .git into Docker build context (required by BuildKit provenance/git metadata) =="
+          echo "== Ensuring git safe.directory is set (avoid dubious ownership exit 128) =="
+          git config --local --add safe.directory "*" || true
+          git config --local --add safe.directory "$PWD" || true
+
+          echo "== Copying real .git into Docker build context (required by provenance/git metadata) =="
           rm -rf ./daily-work-tracker-ios/DW/.git || true
           cp -R .git ./daily-work-tracker-ios/DW/.git
 
