@@ -285,10 +285,20 @@ jobs:
               --container-registry-password "${{ secrets.GITHUB_TOKEN }}"
 
             echo "Container config after set:"
-            az webapp config container show \
+            CONTAINER_CFG="$(az webapp config container show \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --output json
+              --output json)"
+
+            echo "$CONTAINER_CFG"
+
+            {
+              echo "## Azure container config"
+              echo ""
+              echo "\`\`\`json"
+              echo "$CONTAINER_CFG"
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
 
             # Ensure container listens on the port the Azure Web App expects.
             az webapp config appsettings set \
