@@ -91,7 +91,7 @@ jobs:
           echo "== Patching DW Dockerfile: remove bogus @types/* 2 directories =="
           # Docker install may create empty dirs named like: node_modules/@types/express 2
           # These trigger TS2688 when tsc scans all @types folders.
-          awk 'BEGIN{done=0} {print} /RUN npm install/ && done==0 {print "RUN rm -rf node_modules/@types/*\\ 2 || true"; done=1}' \
+          awk 'BEGIN{done=0} {print} /^RUN npm install/ && done==0 {print "RUN find node_modules/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true"; done=1}' \
             /tmp/dw-build-context/Dockerfile > /tmp/dw-build-context/Dockerfile.patched
 
           mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile
