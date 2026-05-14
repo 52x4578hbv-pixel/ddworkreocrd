@@ -81,8 +81,6 @@ jobs:
 
           docker build \
             --pull \
-            --provenance=false \
-            --sbom=false \
             --no-cache \
             --progress=plain \
             --tag "$IMAGE" \
