@@ -139,6 +139,12 @@ jobs:
               --docker-registry-server-user "${{ github.actor }}" \
               --docker-registry-server-password "${{ secrets.GITHUB_TOKEN }}"
 
+            # Ensure container listens on the port the Azure Web App expects.
+            az webapp config appsettings set \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --settings PORT=3000
+
             az webapp restart \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}"
