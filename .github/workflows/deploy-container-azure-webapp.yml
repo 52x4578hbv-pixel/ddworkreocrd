@@ -23,6 +23,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      app_port: ${{ steps.build_and_push.outputs.app_port }}
     steps:
       - name: Download source (no git)
         shell: bash
@@ -51,6 +53,7 @@ jobs:
           echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Build and push image
+        id: build_and_push
         shell: bash
         run: |
           set -euo pipefail
@@ -80,9 +83,11 @@ jobs:
 
           PATCH_DW="false"
           CONTEXT_SUBDIR=""
+          APP_PORT="4173"
           if [ -f "$DW_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/DW"
             PATCH_DW="true"
+            APP_PORT="3000"
             echo "Detected DW Dockerfile ✅"
           elif [ -f "$CONSOLE_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/ddworkrecord-console"
@@ -92,6 +97,8 @@ jobs:
             ls -la "$SOURCE_DIR/daily-work-tracker-ios" || true
             exit 1
           fi
+
+          echo "app_port=$APP_PORT" >> "$GITHUB_OUTPUT"
 
           echo "--- using CONTEXT_SUBDIR=$CONTEXT_SUBDIR =="
           ls -la "$SOURCE_DIR/$CONTEXT_SUBDIR" || true
@@ -275,7 +282,7 @@ jobs:
             az webapp config appsettings set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --settings PORT=3000
+              --settings PORT="${{ needs.build-and-push.outputs.app_port }}"
 
             az webapp restart \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
