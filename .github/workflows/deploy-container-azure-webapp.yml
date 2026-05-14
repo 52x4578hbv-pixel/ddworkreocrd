@@ -112,7 +112,7 @@ jobs:
             echo "== Docker build failed — tail log =="
             tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" || true
 
-            tail_msg="$(tail -n 40 /tmp/docker-build.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
+            tail_msg="$(tail -n 40 "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800 || true)"
             echo "::error title=Docker build failed::${tail_msg}"
 
             exit $build_status
@@ -129,7 +129,7 @@ jobs:
             echo "== Docker push failed — tail log =="
             tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
 
-            tail_msg="$(tail -n 40 /tmp/docker-push.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
+            tail_msg="$(tail -n 40 "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800 || true)"
             echo "::error title=Docker push failed::${tail_msg}"
 
             exit $push_status
