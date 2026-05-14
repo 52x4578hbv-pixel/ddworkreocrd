@@ -271,17 +271,25 @@ jobs:
           inlineScript: |
             set -euo pipefail
 
-            IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
+            IMAGE_FULL="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
+            IMAGE_NAME_TAG="${{ env.REPO }}:${{ github.sha }}"
 
-            echo "Setting container image to: $IMAGE"
+            echo "Setting container image to: $IMAGE_FULL (using docker-custom-image-name=$IMAGE_NAME_TAG)"
 
             az webapp config container set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --docker-custom-image-name "$IMAGE" \
+              --docker-custom-image-name "$IMAGE_NAME_TAG" \
               --docker-registry-server-url "https://ghcr.io" \
               --docker-registry-server-user "${{ github.actor }}" \
               --docker-registry-server-password "${{ secrets.GITHUB_TOKEN }}"
+
+            echo "Container config after set:"
+            az webapp config container show \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --query "{dockerCustomImageName:dockerCustomImageName,dockerRegistryServerUrl:dockerRegistryServerUrl}" \
+              --output json
 
             # Ensure container listens on the port the Azure Web App expects.
             az webapp config appsettings set \
