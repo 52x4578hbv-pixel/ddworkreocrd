@@ -104,8 +104,8 @@ jobs:
             --no-cache \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context 2>&1 | tee /tmp/docker-build.log
-          build_status=${PIPESTATUS[0]}
+            /tmp/dw-build-context > /tmp/docker-build.log 2>&1
+          build_status=$?
           set -e
           echo "Docker build status: $build_status"
 
@@ -121,8 +121,11 @@ jobs:
 
           echo "== Pushing Docker image =="
           rm -f /tmp/docker-push.log
-          docker push "$IMAGE" 2>&1 | tee /tmp/docker-push.log
-          push_status=${PIPESTATUS[0]}
+          : > /tmp/docker-push.log
+          set +e
+          docker push "$IMAGE" > /tmp/docker-push.log 2>&1
+          push_status=$?
+          set -e
 
           if [ $push_status -ne 0 ]; then
             echo "== Docker push failed — tail log =="
