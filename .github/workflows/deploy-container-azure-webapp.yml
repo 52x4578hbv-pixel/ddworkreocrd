@@ -82,13 +82,11 @@ jobs:
             --exclude .Trashes \
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
-          echo "== Patching DW Dockerfile to remove bogus @types/* 2 directories =="
-
-          # Insert cleanup after `npm install` using `find` (robust against spaces in directory names).
-          awk 'BEGIN{done=0} {print} /RUN npm install/ && done==0 {print "RUN find node_modules/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true"; done=1}' \
-            /tmp/dw-build-context/Dockerfile > /tmp/dw-build-context/Dockerfile.patched
-
-          mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile
+          echo "== Patching DW tsconfig.json: set compilerOptions.types=['node'] =="
+          if ! grep -q '"types"' /tmp/dw-build-context/tsconfig.json; then
+            # Insert `types` right after the `rootDir` line (robust, avoids complex quoting).
+            sed -i '/"rootDir": "\.\/",/a\    "types": ["node"],' /tmp/dw-build-context/tsconfig.json
+          fi
 
           rm -f /tmp/docker-build.log
           docker build \
