@@ -75,6 +75,11 @@ jobs:
             --exclude node_modules \
             --exclude dist \
             --exclude npm-debug.log \
+            --exclude .DS_Store \
+            --exclude .AppleDouble \
+            --exclude .LSOverride \
+            --exclude .Spotlight-V100 \
+            --exclude .Trashes \
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
           rm -f /tmp/docker-build.log
