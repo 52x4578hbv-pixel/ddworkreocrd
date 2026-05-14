@@ -91,20 +91,24 @@ jobs:
           echo "== Patching DW Dockerfile: remove bogus @types/* 2 directories =="
           # Docker install may create empty dirs named like: node_modules/@types/express 2
           # These trigger TS2688 when tsc scans all @types folders.
-          awk 'BEGIN{done=0} {print} /^RUN npm install/ && done==0 {print "RUN find node_modules/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true"; done=1}' \
-            /tmp/dw-build-context/Dockerfile > /tmp/dw-build-context/Dockerfile.patched
-
+          cp /tmp/dw-build-context/Dockerfile /tmp/dw-build-context/Dockerfile.patched
+          sed -i "/^RUN npm install\$/a RUN find node_modules\/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true" /tmp/dw-build-context/Dockerfile.patched
           mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile
 
+          echo "== Patched Dockerfile sanity =="
+          wc -c /tmp/dw-build-context/Dockerfile || true
+          head -n 30 /tmp/dw-build-context/Dockerfile || true
+
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
+          set -o pipefail
           set +e
           docker build --progress=plain \
             --pull \
             --no-cache \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" 2>&1
-          build_status=$?
+            /tmp/dw-build-context 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
+          build_status=${PIPESTATUS[0]}
           set -e
           echo "Docker build status: $build_status"
           echo "== docker-build.log bytes =="
@@ -122,9 +126,10 @@ jobs:
 
           echo "== Pushing Docker image =="
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
+          set -o pipefail
           set +e
-          docker push --progress=plain "$IMAGE" > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" 2>&1
-          push_status=$?
+          docker push --progress=plain "$IMAGE" 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
+          push_status=${PIPESTATUS[0]}
           set -e
           echo "== docker-push.log bytes =="
           wc -c "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
