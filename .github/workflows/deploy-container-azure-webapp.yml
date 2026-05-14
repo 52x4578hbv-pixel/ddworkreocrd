@@ -26,19 +26,11 @@ jobs:
     outputs:
       app_port: ${{ steps.build_and_push.outputs.app_port }}
     steps:
-      - name: Download source (no git)
-        shell: bash
-        run: |
-          set -euo pipefail
-          SOURCE_DIR=/tmp/src
-          rm -rf "$SOURCE_DIR"
-          mkdir -p "$SOURCE_DIR"
-
-          curl -sSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz" \
-            | tar -xz --strip-components=1 -C "$SOURCE_DIR"
-
-          echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
