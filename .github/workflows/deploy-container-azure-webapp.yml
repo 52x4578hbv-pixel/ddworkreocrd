@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_DIR=/tmp/src
+          SOURCE_DIR="${GITHUB_WORKSPACE}"
           IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
 
           LOG_BUILD="${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
