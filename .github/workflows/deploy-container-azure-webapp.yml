@@ -96,22 +96,21 @@ jobs:
 
           mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile
 
-          rm -f /tmp/docker-build.log
-          : > /tmp/docker-build.log
+          : > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
           set +e
           docker build \
             --pull \
             --no-cache \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context > /tmp/docker-build.log 2>&1
+            /tmp/dw-build-context > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" 2>&1
           build_status=$?
           set -e
           echo "Docker build status: $build_status"
 
           if [ $build_status -ne 0 ]; then
             echo "== Docker build failed — tail log =="
-            tail -n 200 /tmp/docker-build.log || true
+            tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" || true
 
             tail_msg="$(tail -n 40 /tmp/docker-build.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
             echo "::error title=Docker build failed::${tail_msg}"
@@ -120,16 +119,15 @@ jobs:
           fi
 
           echo "== Pushing Docker image =="
-          rm -f /tmp/docker-push.log
-          : > /tmp/docker-push.log
+          : > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
           set +e
-          docker push "$IMAGE" > /tmp/docker-push.log 2>&1
+          docker push "$IMAGE" > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" 2>&1
           push_status=$?
           set -e
 
           if [ $push_status -ne 0 ]; then
             echo "== Docker push failed — tail log =="
-            tail -n 200 /tmp/docker-push.log || true
+            tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
 
             tail_msg="$(tail -n 40 /tmp/docker-push.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
             echo "::error title=Docker push failed::${tail_msg}"
@@ -143,9 +141,9 @@ jobs:
         run: |
           set -euo pipefail
           : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is not set}"
+          # docker build/push logs are already written directly to $GITHUB_WORKSPACE above.
+          # Keep this step to ensure files exist for artifact upload.
           touch "$GITHUB_WORKSPACE/docker-build.log" "$GITHUB_WORKSPACE/docker-push.log"
-          cp -f /tmp/docker-build.log "$GITHUB_WORKSPACE/docker-build.log" || true
-          cp -f /tmp/docker-push.log "$GITHUB_WORKSPACE/docker-push.log" || true
 
           echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
           ls -la "$GITHUB_WORKSPACE" | sed -n '1,60p' || true
