@@ -57,6 +57,17 @@ jobs:
           SOURCE_DIR=/tmp/src
           IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
 
+          LOG_BUILD="${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
+          LOG_PUSH="${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
+          : > "$LOG_BUILD"
+          : > "$LOG_PUSH"
+          echo "=== Build step started at $(date -u +'%Y-%m-%dT%H:%M:%SZ') ===" >> "$LOG_BUILD"
+          echo "IMAGE=$IMAGE" >> "$LOG_BUILD"
+
+          # If anything fails before we reach docker build, we still want a useful log file.
+          set -E
+          trap 'echo "!! failure at line $LINENO (exit $?)" >> "$LOG_BUILD"' ERR
+
           echo "== Diagnostics: where are we and what is checked out? =="
           pwd
           echo "--- repo root ls ---"
@@ -81,7 +92,8 @@ jobs:
             --exclude .LSOverride \
             --exclude .Spotlight-V100 \
             --exclude .Trashes \
-            "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
+            "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/ \
+            || { echo "::error title=rsync failed::"; ls -la /tmp || true; ls -la /tmp/dw-build-context || true; exit 1; }
 
           echo "== Build context contents (sanity check) =="
           ls -la /tmp/dw-build-context || true
@@ -99,9 +111,9 @@ jobs:
           echo "== Patching DW Dockerfile: remove bogus @types/* 2 directories =="
           # Docker install may create empty dirs named like: node_modules/@types/express 2
           # These trigger TS2688 when tsc scans all @types folders.
-          cp /tmp/dw-build-context/Dockerfile /tmp/dw-build-context/Dockerfile.patched
-          sed -i "/^RUN npm install\$/a RUN find node_modules\/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true" /tmp/dw-build-context/Dockerfile.patched
-          mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile
+          cp /tmp/dw-build-context/Dockerfile /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=cp Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
+          sed -i "/^RUN npm install\$/a RUN find node_modules\/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true" /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=sed Dockerfile patch failed::"; ls -la /tmp/dw-build-context || true; head -n 30 /tmp/dw-build-context/Dockerfile.patched || true; exit 1; }
+          mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile || { echo "::error title=mv patched Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
 
           echo "== Patched Dockerfile sanity =="
           wc -c /tmp/dw-build-context/Dockerfile || true
