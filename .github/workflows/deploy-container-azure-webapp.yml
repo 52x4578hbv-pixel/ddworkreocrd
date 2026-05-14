@@ -79,16 +79,26 @@ jobs:
             --exclude npm-debug.log \
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
-          docker build \
+          rm -f /tmp/docker-build.log
+          if ! docker build \
             --pull \
             --no-cache \
             --progress=plain \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context
+            /tmp/dw-build-context 2>&1 | tee /tmp/docker-build.log; then
+            echo "== Docker build failed — tail log =="
+            tail -n 200 /tmp/docker-build.log || true
+            exit 1
+          fi
 
           echo "== Pushing Docker image =="
-          docker push "$IMAGE"
+          rm -f /tmp/docker-push.log
+          if ! docker push "$IMAGE" 2>&1 | tee /tmp/docker-push.log; then
+            echo "== Docker push failed — tail log =="
+            tail -n 200 /tmp/docker-push.log || true
+            exit 1
+          fi
 
   deploy:
     runs-on: ubuntu-latest
