@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { type Period, API_BASE_URL } from '../lib/api'
 import { getLocalPreviewSummary, getLocalPreviewWorkdays } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getDefaultAssistantCount, getEmployeeCodes, getAssistantCodes, getAssistantIndexForEmployee } from '../lib/localPreviewSeed'
+import { theme } from '../lib/theme'
 
 type SyncStatus = 'idle' | 'exporting' | 'error'
 
@@ -160,7 +161,16 @@ export default function Reports() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 980,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Reports</h1>
@@ -191,7 +201,17 @@ export default function Reports() {
       </div>
 
       {error ? (
-        <div style={{ marginTop: 14, padding: 12, background: '#fee2e2', borderLeft: '4px solid #ef4444', fontWeight: 900, borderRadius: 8, color: '#7f1d1d' }}>
+        <div
+          style={{
+            marginTop: 14,
+            padding: 12,
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
+            fontWeight: 900,
+            borderRadius: theme.radiusSm,
+            color: theme.errorDark,
+          }}
+        >
           {error}
         </div>
       ) : null}
@@ -296,17 +316,20 @@ export default function Reports() {
             disabled={syncStatus === 'exporting'}
             style={{
               padding: '12px 16px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: syncStatus === 'exporting' ? 'not-allowed' : 'pointer',
               fontWeight: 1000,
               opacity: syncStatus === 'exporting' ? 0.7 : 1,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
+              whiteSpace: 'nowrap',
             }}
           >
             {syncStatus === 'exporting' ? 'Exporting…' : 'Export XLSX'}
           </button>
 
-          <div style={{ color: '#64748b', fontWeight: 800, fontSize: 12 }}>
+          <div style={{ color: theme.muted2, fontWeight: 800, fontSize: 12 }}>
             Exports: RawData + Summary sheets.
           </div>
         </div>

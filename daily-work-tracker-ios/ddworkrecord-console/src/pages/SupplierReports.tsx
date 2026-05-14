@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { type Period, API_BASE_URL } from '../lib/api'
 import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
+import { theme } from '../lib/theme'
 
 type SupplierJobStatus = 'complete' | 'return-required'
 
@@ -122,11 +123,20 @@ export default function SupplierReports() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 980,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ margin: 0 }}>Supplier Reports</h1>
-          <p style={{ marginTop: 8, color: '#475569', fontWeight: 800, fontSize: 12 }}>
+          <h1 style={{ margin: 0, color: theme.text }}>Supplier Reports</h1>
+          <p style={{ marginTop: 8, color: theme.muted, fontWeight: 800, fontSize: 12 }}>
             {period.toUpperCase()} summary computed from local preview data
           </p>
         </div>
@@ -139,11 +149,14 @@ export default function SupplierReports() {
               onClick={() => setPeriod(p)}
               style={{
                 padding: '10px 12px',
-                border: '2px solid #0f172a',
-                background: period === p ? '#0f172a' : '#fff',
-                color: period === p ? '#fff' : '#0f172a',
+                border: `2px solid ${theme.text}`,
+                background: period === p ? theme.text : theme.surface,
+                color: period === p ? '#fff' : theme.text,
                 cursor: 'pointer',
                 fontWeight: 1000,
+                borderRadius: theme.radiusSm,
+                boxShadow: `3px 3px 0 ${theme.text}`,
+                whiteSpace: 'nowrap',
               }}
             >
               {p.toUpperCase()}
@@ -157,11 +170,11 @@ export default function SupplierReports() {
           style={{
             marginTop: 14,
             padding: 12,
-            background: '#fee2e2',
-            borderLeft: '4px solid #ef4444',
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
             fontWeight: 900,
-            borderRadius: 8,
-            color: '#7f1d1d',
+            borderRadius: theme.radiusSm,
+            color: theme.errorDark,
           }}
         >
           {error}
@@ -169,62 +182,78 @@ export default function SupplierReports() {
       ) : null}
 
       <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-          <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Supplier workdays</div>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Supplier workdays</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{totals.workdays}</div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-          <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Supplier spend</div>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Supplier spend</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{totals.supplierSpend}</div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-          <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Supplier stop count</div>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Supplier stop count</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{totals.supplierStopCount}</div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-          <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Complete spend</div>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Complete spend</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{totals.completeSpend}</div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-          <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Return-required spend</div>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Return-required spend</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{totals.returnSpend}</div>
         </div>
       </div>
 
-      <div style={{ marginTop: 14, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
+      <div style={{ marginTop: 14, color: theme.muted2, fontWeight: 800, fontSize: 12 }}>
         Note: This uses the local preview dataset’s supplier spend (template data). Real segment-level supplier timing can be wired later.
       </div>
 
-      <div style={{ marginTop: 18, padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
-        <div style={{ fontWeight: 1000 }}>Export to Excel (XLSX)</div>
-        <div style={{ marginTop: 6, color: '#64748b', fontWeight: 850, fontSize: 12 }}>
+      <div style={{ marginTop: 18, padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
+        <div style={{ fontWeight: 1000, color: theme.text }}>Export to Excel (XLSX)</div>
+        <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12 }}>
           Backend export uses the same XLSX generator as Employee Reports.
         </div>
 
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <div>
-            <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }}>Start date</label>
+            <label style={{ display: 'block', fontWeight: 1000, marginBottom: 6, color: theme.text }}>Start date</label>
             <input
               aria-label="Start date"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              style={{ width: '100%', padding: 10, border: '2px solid #0f172a', borderRadius: 10, fontWeight: 900 }}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: `2px solid ${theme.text}`,
+                borderRadius: theme.radiusSm,
+                fontWeight: 950,
+                background: theme.surface,
+                color: theme.text,
+              }}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }}>End date</label>
+            <label style={{ display: 'block', fontWeight: 1000, marginBottom: 6, color: theme.text }}>End date</label>
             <input
               aria-label="End date"
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              style={{ width: '100%', padding: 10, border: '2px solid #0f172a', borderRadius: 10, fontWeight: 900 }}
+              style={{
+                width: '100%',
+                padding: 10,
+                border: `2px solid ${theme.text}`,
+                borderRadius: theme.radiusSm,
+                fontWeight: 950,
+                background: theme.surface,
+                color: theme.text,
+              }}
             />
           </div>
         </div>
@@ -236,11 +265,14 @@ export default function SupplierReports() {
             disabled={syncStatus === 'exporting'}
             style={{
               padding: '12px 16px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: syncStatus === 'exporting' ? 'not-allowed' : 'pointer',
               fontWeight: 1000,
               opacity: syncStatus === 'exporting' ? 0.7 : 1,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
+              whiteSpace: 'nowrap',
             }}
           >
             {syncStatus === 'exporting' ? 'Exporting…' : 'Export XLSX'}

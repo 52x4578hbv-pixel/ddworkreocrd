@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { getLocalPreviewWorkdays, type FuelStop } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
+import { theme } from '../lib/theme'
 
 function includesCI(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase())
@@ -55,7 +56,7 @@ export default function FuelStopsList() {
   }, [workdays, selectedEmployee, fromDate, toDate, fuelStationSearch])
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Fuel Stops (Sandbox)</h1>
@@ -64,7 +65,7 @@ export default function FuelStopsList() {
           </p>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', minWidth: 240 }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total fuel stops</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>
             {rows.reduce((acc, w) => acc + w.fuelStops.length, 0)}
@@ -73,7 +74,7 @@ export default function FuelStopsList() {
       </div>
 
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Employee filter</div>
           <div style={{ marginTop: 8 }}>
             <select
@@ -174,7 +175,7 @@ export default function FuelStopsList() {
         ) : null}
 
         {rows.map((w) => (
-          <div key={w.id} style={{ padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+          <div key={w.id} style={{ padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 1000, fontSize: 16 }}>{w.date}</div>
@@ -206,7 +207,7 @@ export default function FuelStopsList() {
 
 function FuelStopCard({ stop, index }: { stop: FuelStop; index: number }) {
   return (
-    <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+    <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
       <div style={{ fontWeight: 1000, fontSize: 14 }}>Stop #{index}</div>
 
       <div style={{ marginTop: 8, color: '#475569', fontWeight: 900, fontSize: 12 }}>

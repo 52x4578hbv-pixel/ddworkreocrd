@@ -3,6 +3,7 @@ import { fetchStats, type Period } from '../lib/api'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
 import { getEmployeeMultiplier, getDefaultEmployeeCount } from '../lib/localPreviewSeed'
+import { theme } from '../lib/theme'
 
 const EMPLOYEE_COUNT = getDefaultEmployeeCount()
 
@@ -120,7 +121,16 @@ export default function EmployeePage() {
   }, [localRow, employeeCode])
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 980,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 1000, fontSize: 18 }}>Employee Detail</div>
@@ -136,10 +146,12 @@ export default function EmployeePage() {
             onClick={backToDashboard}
             style={{
               padding: '8px 12px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: 'pointer',
               fontWeight: 900,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
             }}
           >
             ← Back
@@ -148,13 +160,23 @@ export default function EmployeePage() {
       </div>
 
       {error ? (
-        <div style={{ marginTop: 16, padding: 12, background: '#fee2e2', borderLeft: '4px solid #ef4444', fontWeight: 800 }}>
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
+            fontWeight: 900,
+            color: theme.text,
+            borderRadius: theme.radiusSm,
+          }}
+        >
           {error}
         </div>
       ) : null}
 
-      <div style={{ marginTop: 18, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-        <div style={{ padding: 14, borderBottom: '2px solid #0f172a', background: '#f8fafc' }}>
+      <div style={{ marginTop: 18, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'hidden' }}>
+        <div style={{ padding: 14, borderBottom: `2px solid ${theme.text}`, background: theme.accentBg }}>
           <div style={{ fontWeight: 1000 }}>Hours & Pay (Month)</div>
           <div style={{ marginTop: 4, color: '#64748b', fontWeight: 800, fontSize: 12 }}>{loading ? 'Loading…' : 'Details view'}</div>
         </div>

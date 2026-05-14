@@ -3,6 +3,7 @@ import { getLocalPreviewWorkdays, type LocalPreviewWorkday } from '../lib/localP
 import { getEmployeeCodes, getDefaultEmployeeCount } from '../lib/localPreviewSeed'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { API_BASE_URL } from '../lib/api'
+import { theme } from '../lib/theme'
 
 export default function RecordsList() {
   const EMPLOYEE_COUNT = getDefaultEmployeeCount()
@@ -48,7 +49,7 @@ export default function RecordsList() {
   }, [selectedEmployee, workdays])
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>
@@ -62,12 +63,12 @@ export default function RecordsList() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', minWidth: 240 }}>
+          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
             <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total records</div>
             <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{filteredWorkdays.length}</div>
           </div>
 
-          <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', minWidth: 260 }}>
+          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 260 }}>
             <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Filter by employee</div>
             <div style={{ marginTop: 8 }}>
               <select
@@ -78,11 +79,11 @@ export default function RecordsList() {
                 style={{
                   width: '100%',
                   padding: 10,
-                  border: '2px solid #0f172a',
-                  borderRadius: 10,
+                  border: `2px solid ${theme.text}`,
+                  borderRadius: theme.radiusSm,
                   fontWeight: 900,
-                  background: '#fff',
-                  color: '#0f172a',
+                  background: theme.surface,
+                  color: theme.text,
                 }}
               >
                 <option value="all">All employees</option>
@@ -99,7 +100,7 @@ export default function RecordsList() {
 
       <div style={{ marginTop: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         {filteredWorkdays.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', padding: 14, border: '2px dashed #0f172a', borderRadius: 12, background: '#fff' }}>
+          <div style={{ gridColumn: '1 / -1', padding: 14, border: `2px dashed ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ fontWeight: 1000 }}>No records found</div>
             <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
               {selectedEmployee === 'all' ? (
@@ -126,7 +127,7 @@ export default function RecordsList() {
                 window.location.hash = `#record/${w.id}`
               }
             }}
-            style={{ padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', cursor: 'pointer' }}
+            style={{ padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <div>
@@ -136,7 +137,7 @@ export default function RecordsList() {
                 </div>
               </div>
 
-              <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+              <div style={{ padding: 10, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Hours</div>
                 <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 22 }}>{w.totalHours}</div>
               </div>

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { API_BASE_URL } from '../lib/api'
+import { theme } from '../lib/theme'
 
 type SyncStatus = 'idle' | 'queued' | 'syncing' | 'synced' | 'error'
 
@@ -343,9 +344,18 @@ export default function AddDailyRecord() {
   const errorUi = error ? formatErrorForUi(error) : null
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 900 }}>
-      <h1 style={{ margin: 0 }}>Add Daily Record</h1>
-      <p style={{ marginTop: 8, color: '#475569' }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 900,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
+      <h1 style={{ margin: 0, color: theme.text }}>Add Daily Record</h1>
+      <p style={{ marginTop: 8, color: theme.muted }}>
         Offline-first entry form. We auto-save to local storage and sync when online.
       </p>
 
@@ -353,9 +363,9 @@ export default function AddDailyRecord() {
         style={{
           marginTop: 12,
           padding: 14,
-          border: '2px solid #0f172a',
-          borderRadius: 12,
-          background: '#fff',
+          border: `2px solid ${theme.text}`,
+          borderRadius: theme.radiusMd,
+          background: theme.surface,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -369,10 +379,11 @@ export default function AddDailyRecord() {
               onClick={() => setShowErrorDetails((v) => !v)}
               style={{
                 padding: '8px 10px',
-                border: '2px solid #0f172a',
-                background: '#fff',
+                border: `2px solid ${theme.text}`,
+                background: theme.surface,
                 cursor: 'pointer',
                 fontWeight: 900,
+                borderRadius: theme.radiusSm,
               }}
             >
               {showErrorDetails ? 'Hide details' : 'View details'}
@@ -382,8 +393,8 @@ export default function AddDailyRecord() {
 
         {error ? (
           <div style={{ marginTop: 10 }}>
-            <div style={{ color: '#b91c1c', fontWeight: 1000 }}>{errorUi?.title}</div>
-            <div style={{ marginTop: 6, color: '#dc2626', fontWeight: 750 }}>
+            <div style={{ color: theme.errorDark, fontWeight: 1000 }}>{errorUi?.title}</div>
+            <div style={{ marginTop: 6, color: theme.error, fontWeight: 750 }}>
               {errorUi?.short}
             </div>
 
@@ -514,16 +525,17 @@ export default function AddDailyRecord() {
           onClick={() => { if (syncStatus !== 'syncing') void submit() }}
           style={{
             padding: '12px 16px',
-            border: '2px solid #0f172a',
-            background: '#fff',
+            border: `2px solid ${theme.text}`,
+            background: theme.surface,
             cursor: 'pointer',
             fontWeight: 900,
+            borderRadius: theme.radiusSm,
           }}
         >
           {syncStatus === 'syncing' ? 'Saving...' : 'Save (offline-ready)'}
         </button>
 
-        <div style={{ color: '#64748b', fontWeight: 700 }}>
+        <div style={{ color: theme.muted2, fontWeight: 700 }}>
           Required fields: Date, Start time, End time, Mileage (optional), Fuel/Supplier (optional), Job + Notes (optional).
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { assignEmployee } from '../lib/api'
+import { theme } from '../lib/theme'
 
 export default function AdminPanel() {
   const [employeeCode, setEmployeeCode] = useState('')
@@ -46,60 +47,60 @@ export default function AdminPanel() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 900 }}>
-      <h1 style={{ margin: 0 }}>Admin Panel</h1>
-      <p style={{ marginTop: 8, color: '#475569' }}>
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 900, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
+      <h1 style={{ margin: 0, color: theme.text }}>Admin Panel</h1>
+      <p style={{ marginTop: 8, color: theme.muted }}>
         MVP admin tools (employee code assignment). Role enforcement is handled by the API.
       </p>
 
       {error && (
-        <div style={{ marginTop: 16, padding: 12, background: '#fee2e2', borderLeft: '4px solid #ef4444', fontWeight: 800 }}>
+        <div style={{ marginTop: 16, padding: 12, background: theme.errorBg, borderLeft: `4px solid ${theme.error}`, fontWeight: 900, color: theme.text, borderRadius: theme.radiusSm }}>
           {error}
         </div>
       )}
       {ok && (
-        <div style={{ marginTop: 16, padding: 12, background: '#dcfce7', borderLeft: '4px solid #22c55e', fontWeight: 800 }}>
+        <div style={{ marginTop: 16, padding: 12, background: theme.accentPillBg, borderLeft: `4px solid ${theme.success}`, fontWeight: 900, color: theme.text, borderRadius: theme.radiusSm }}>
           {ok}
         </div>
       )}
 
-      <div style={{ marginTop: 18, padding: 16, border: '2px solid #0f172a', borderRadius: 10 }}>
+      <div style={{ marginTop: 18, padding: 16, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, background: theme.surface }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           <div>
-            <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }} title="Employee code">
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 6, color: theme.text }} title="Employee code">
               Employee code
             </label>
             <input
               title="Employee code"
               value={employeeCode}
               onChange={(e) => setEmployeeCode(e.target.value)}
-              style={{ width: '100%', padding: 10 }}
+              style={{ width: '100%', padding: 10, borderRadius: theme.radiusSm, border: `2px solid ${theme.text}`, outline: 'none', background: theme.surface, color: theme.text, fontWeight: 900 }}
               placeholder="e.g. EMP-001"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }} title="Display name">
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 6, color: theme.text }} title="Display name">
               Display name
             </label>
             <input
               title="Display name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              style={{ width: '100%', padding: 10 }}
+              style={{ width: '100%', padding: 10, borderRadius: theme.radiusSm, border: `2px solid ${theme.text}`, outline: 'none', background: theme.surface, color: theme.text, fontWeight: 900 }}
               placeholder="e.g. Jane Worker"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }} title="Vehicle id (optional)">
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 6, color: theme.text }} title="Vehicle id (optional)">
               Vehicle ID (optional)
             </label>
             <input
               title="Vehicle ID (optional)"
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
-              style={{ width: '100%', padding: 10 }}
+              style={{ width: '100%', padding: 10, borderRadius: theme.radiusSm, border: `2px solid ${theme.text}`, outline: 'none', background: theme.surface, color: theme.text, fontWeight: 900 }}
               placeholder="e.g. V-123"
             />
           </div>
@@ -111,16 +112,19 @@ export default function AdminPanel() {
             disabled={loading}
             style={{
               padding: '12px 16px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontWeight: 900,
+              fontWeight: 1050,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
+              whiteSpace: 'nowrap',
             }}
           >
             {loading ? 'Saving…' : 'Save employee'}
           </button>
 
-          <div style={{ color: '#64748b', fontWeight: 800, fontSize: 12 }}>
+          <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>
             Uses POST /api/v1/admin/employees
           </div>
         </div>

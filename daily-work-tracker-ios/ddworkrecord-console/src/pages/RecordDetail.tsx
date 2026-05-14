@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { API_BASE_URL } from '../lib/api'
+import { theme } from '../lib/theme'
 
 type LocalRecord = ReturnType<typeof getLocalPreviewWorkdays>[number]
 
@@ -349,7 +350,16 @@ export default function RecordDetail() {
   const endTimeLabel = isLocalPreview ? localRecord!.endTime : '—'
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 980,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 1000, fontSize: 18 }}>Full Day Report</div>
@@ -367,10 +377,12 @@ export default function RecordDetail() {
             onClick={backToRecords}
             style={{
               padding: '8px 12px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: 'pointer',
               fontWeight: 900,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
             }}
           >
             ← Back to Records
@@ -378,8 +390,8 @@ export default function RecordDetail() {
         </div>
       </div>
 
-      <div style={{ marginTop: 18, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-        <div style={{ padding: 14, borderBottom: '2px solid #0f172a', background: '#f8fafc' }}>
+      <div style={{ marginTop: 18, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'hidden' }}>
+        <div style={{ padding: 14, borderBottom: `2px solid ${theme.text}`, background: theme.accentBg }}>
           <div style={{ fontWeight: 1000 }}>Totals</div>
           <div style={{ marginTop: 4, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
             {isLocalPreview ? 'Sandbox record' : 'Synced record'}

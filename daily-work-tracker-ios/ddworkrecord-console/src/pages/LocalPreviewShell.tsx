@@ -10,6 +10,7 @@ import SupplierStopsList from './SupplierStopsList'
 import FuelStopsList from './FuelStopsList'
 import { ensureSeededLocalPreview } from '../lib/localPreviewSeed'
 import { getLocalPreviewDraftCount, getLocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
+import { theme } from '../lib/theme'
 
 type Tab =
   | 'dashboard'
@@ -99,15 +100,16 @@ export default function LocalPreviewShell() {
   }, [tab])
 
   return (
-    <div style={{ fontFamily: 'system-ui' }}>
+    <div style={{ fontFamily: 'system-ui', background: theme.pageBg, minHeight: '100vh' }}>
       <div
         style={{
-          borderBottom: '3px solid #0f172a',
-          background: '#fff',
+          borderBottom: `3px solid ${theme.text}`,
+          background: theme.topBarBg,
           position: 'sticky',
           top: 0,
           zIndex: 10,
           padding: 12,
+          backdropFilter: 'blur(2px)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -138,11 +140,14 @@ export default function LocalPreviewShell() {
                 onClick={() => setHashTab(t.key)}
                 style={{
                   padding: '10px 12px',
-                  border: '2px solid #0f172a',
-                  background: tab === t.key ? '#0f172a' : '#fff',
-                  color: tab === t.key ? '#fff' : '#0f172a',
+                  border: `2px solid ${theme.text}`,
+                  background: tab === t.key ? theme.text : theme.surface,
+                  color: tab === t.key ? '#fff' : theme.text,
                   cursor: 'pointer',
-                  fontWeight: 1000,
+                  fontWeight: 1100,
+                  borderRadius: theme.radiusSm,
+                  boxShadow: tab === t.key ? `3px 3px 0 ${theme.text}` : undefined,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {t.label}
@@ -169,11 +174,11 @@ export default function LocalPreviewShell() {
           style={{
             margin: 12,
             padding: 12,
-            background: '#fee2e2',
-            borderLeft: '4px solid #ef4444',
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
             fontWeight: 900,
-            borderRadius: 8,
-            color: '#7f1d1d',
+            borderRadius: theme.radiusSm,
+            color: theme.errorDark,
           }}
         >
           Local preview failed to seed: {seedError}

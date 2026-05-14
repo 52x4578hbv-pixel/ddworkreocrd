@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { getLocalPreviewWorkdays, type SupplierStop } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
+import { theme } from '../lib/theme'
 
 function includesCI(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase())
@@ -66,7 +67,7 @@ export default function SupplierStopsList() {
   }, [workdays, selectedEmployee, fromDate, toDate, supplierSearch, jobIdSearch])
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Supplier Stops (Sandbox)</h1>
@@ -75,7 +76,7 @@ export default function SupplierStopsList() {
           </p>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', minWidth: 240 }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total supplier stops</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>
             {rows.reduce((acc, w) => acc + w.supplierStops.length, 0)}
@@ -84,7 +85,7 @@ export default function SupplierStopsList() {
       </div>
 
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Employee filter</div>
           <div style={{ marginTop: 8 }}>
             <select
@@ -111,7 +112,7 @@ export default function SupplierStopsList() {
           </div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>From date</div>
           <div style={{ marginTop: 8 }}>
             <input
@@ -133,7 +134,7 @@ export default function SupplierStopsList() {
           </div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>To date</div>
           <div style={{ marginTop: 8 }}>
             <input
@@ -155,7 +156,7 @@ export default function SupplierStopsList() {
           </div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Supplier search</div>
           <div style={{ marginTop: 8 }}>
             <input
@@ -176,7 +177,7 @@ export default function SupplierStopsList() {
           </div>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Job id search</div>
           <div style={{ marginTop: 8 }}>
             <input
@@ -200,13 +201,13 @@ export default function SupplierStopsList() {
 
       <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
         {rows.length === 0 ? (
-          <div style={{ padding: 14, border: '2px dashed #0f172a', borderRadius: 12, background: '#fff', fontWeight: 1000 }}>
+          <div style={{ padding: 14, border: `2px dashed ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, fontWeight: 1000 }}>
             No supplier stops match these filters.
           </div>
         ) : null}
 
         {rows.map((w) => (
-          <div key={w.id} style={{ padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+          <div key={w.id} style={{ padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 1000, fontSize: 16 }}>{w.date}</div>
@@ -238,7 +239,7 @@ export default function SupplierStopsList() {
 
 function SupplierStopCard({ stop, index }: { stop: SupplierStop; index: number }) {
   return (
-    <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+    <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
       <div style={{ fontWeight: 1000, fontSize: 14 }}>Stop #{index}</div>
 
       <div style={{ marginTop: 8, color: '#475569', fontWeight: 900, fontSize: 12 }}>

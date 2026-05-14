@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchLiveLocations, fetchStats, type Period } from '../lib/api'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
+import { theme } from '../lib/theme'
 import {
   getEmployeeCodes,
   getEmployeeMultiplier,
@@ -27,10 +28,10 @@ function GraphBar(props: { label: string; value: number; max: number }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
 
   return (
-    <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+    <div style={{ padding: 10, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ fontWeight: 1000 }}>{props.label}</div>
-        <div style={{ fontWeight: 1000 }}>{format2(value)}</div>
+        <div style={{ fontWeight: 1000, color: theme.text }}>{props.label}</div>
+        <div style={{ fontWeight: 1000, color: theme.text }}>{format2(value)}</div>
       </div>
 
       <div
@@ -174,10 +175,11 @@ export default function Dashboard() {
             onClick={() => void refresh()}
             style={{
               padding: '8px 12px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: 'pointer',
-              fontWeight: 800,
+              fontWeight: 900,
+              borderRadius: theme.radiusSm,
             }}
           >
             {loading ? 'Loading…' : 'Refresh'}
@@ -190,11 +192,12 @@ export default function Dashboard() {
             }}
             style={{
               padding: '8px 12px',
-              border: '2px solid #ef4444',
-              background: '#fff',
+              border: `2px solid ${theme.error}`,
+              background: theme.surface,
               cursor: 'pointer',
-              fontWeight: 800,
-              color: '#dc2626',
+              fontWeight: 900,
+              color: theme.error,
+              borderRadius: theme.radiusSm,
             }}
           >
             Logout
@@ -206,10 +209,11 @@ export default function Dashboard() {
             }}
             style={{
               padding: '10px 14px',
-              border: '2px solid #0f172a',
-              background: '#fff',
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
               cursor: 'pointer',
-              fontWeight: 900,
+              fontWeight: 1000,
+              borderRadius: theme.radiusSm,
             }}
           >
             Add New Record
@@ -218,7 +222,17 @@ export default function Dashboard() {
       </div>
 
       {error ? (
-        <div style={{ marginTop: 16, padding: 12, background: '#fee2e2', borderLeft: '4px solid #ef4444', fontWeight: 800 }}>
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
+            fontWeight: 900,
+            color: theme.text,
+            borderRadius: theme.radiusSm,
+          }}
+        >
           {error}
         </div>
       ) : null}
@@ -230,14 +244,14 @@ export default function Dashboard() {
           Total hours / normal hours (7am-5pm) / overtime (outside 7am-5pm)
         </div>
 
-        <div style={{ marginTop: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'auto' }}>
+        <div style={{ marginTop: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 920 }}>
             <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                <th style={{ textAlign: 'left', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>Employee</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>1) Total Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>2) Normal Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>3) Overtime Hours</th>
+              <tr style={{ background: theme.pageBg }}>
+                <th style={{ textAlign: 'left', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>Employee</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>1) Total Hours</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>2) Normal Hours</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>3) Overtime Hours</th>
               </tr>
             </thead>
             <tbody>

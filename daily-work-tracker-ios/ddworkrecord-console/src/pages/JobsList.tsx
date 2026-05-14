@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { getLocalPreviewWorkdays, type LocalPreviewWorkday } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
+import { theme } from '../lib/theme'
 
 type JobRow = LocalPreviewWorkday & {
   isComplete: boolean
@@ -56,7 +57,7 @@ export default function JobsList() {
   }, [rows, selectedEmployee, fromDate, toDate, jobIdSearch, clientSearch, completeFilter])
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Jobs (Sandbox)</h1>
@@ -65,7 +66,7 @@ export default function JobsList() {
           </p>
         </div>
 
-        <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', minWidth: 240 }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total jobs</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{filtered.length}</div>
         </div>
@@ -212,7 +213,7 @@ export default function JobsList() {
 
       <div style={{ marginTop: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
         {filtered.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', padding: 14, border: '2px dashed #0f172a', borderRadius: 12, background: '#fff' }}>
+          <div style={{ gridColumn: '1 / -1', padding: 14, border: `2px dashed ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ fontWeight: 1000 }}>No sandbox jobs for these filters</div>
             <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
               Try expanding the date range, switching employee to <b>All</b>, or clearing complete/required filters.
@@ -221,7 +222,7 @@ export default function JobsList() {
         ) : null}
 
         {filtered.map((r) => (
-          <div key={r.id} style={{ padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
+          <div key={r.id} style={{ padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 1000, fontSize: 16 }}>{r.date}</div>
@@ -246,8 +247,8 @@ export default function JobsList() {
               </div>
 
               {/* De-emphasize starting mileage */}
-              <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
-                <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Starting mileage</div>
+              <div style={{ padding: 10, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
+                <div style={{ color: theme.muted2, fontWeight: 900, fontSize: 12 }}>Starting mileage</div>
                 <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 16 }}>{r.mileage ?? '—'} km</div>
               </div>
             </div>
@@ -267,21 +268,23 @@ export default function JobsList() {
               </div>
 
             <div style={{ marginTop: 12 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.hash = `#record/${r.id}`
-                }}
-                style={{
-                  padding: '10px 12px',
-                  border: '2px solid #0f172a',
-                  borderRadius: 10,
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 1000,
-                  width: '100%',
-                }}
-              >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.hash = `#record/${r.id}`
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      border: `2px solid ${theme.text}`,
+                      borderRadius: theme.radiusSm,
+                      background: theme.surface,
+                      cursor: 'pointer',
+                      fontWeight: 1000,
+                      boxShadow: `3px 3px 0 ${theme.text}`,
+                      width: '100%',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                 Open record detail
               </button>
             </div>

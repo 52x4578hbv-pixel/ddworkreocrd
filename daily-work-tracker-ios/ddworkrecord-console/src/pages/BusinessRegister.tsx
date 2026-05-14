@@ -1,0 +1,136 @@
+import { useState } from 'react'
+import { registerBusiness } from '../lib/businessApi'
+import { theme } from '../lib/theme'
+
+export default function BusinessRegister() {
+  const [businessName, setBusinessName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const [businessCode, setBusinessCode] = useState<string | null>(null)
+
+  const submit = async () => {
+    setError(null)
+    setBusinessCode(null)
+
+    const name = businessName.trim()
+    const email = contactEmail.trim()
+
+    if (!name) {
+      setError('Business name is required.')
+      return
+    }
+
+    if (email && !email.includes('@')) {
+      setError('Contact email looks invalid.')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const res = await registerBusiness({ businessName: name, contactEmail: email || undefined })
+      setBusinessCode(res.businessCode)
+
+      localStorage.setItem('ddworkrecord_business_code', res.businessCode)
+      window.location.hash = '#business-dashboard'
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to register business.'
+      setError(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 860, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
+      <h1 style={{ margin: 0, color: theme.text }}>Business Registration</h1>
+      <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850 }}>
+        Register your business once. We’ll generate a unique access code so you can login to your business dashboard.
+      </p>
+
+      <div style={{ marginTop: 18, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, background: theme.surface, padding: 16 }}>
+        {error ? (
+          <div style={{ marginBottom: 12, padding: 12, background: theme.errorBg, borderLeft: `4px solid ${theme.error}`, fontWeight: 950, borderRadius: theme.radiusSm, color: theme.text }}>
+            {error}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          <div>
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Business name</label>
+            <input
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="e.g. Supreme Parts"
+              style={{
+                width: '100%',
+                padding: 10,
+                border: `2px solid ${theme.text}`,
+                borderRadius: theme.radiusSm,
+                fontWeight: 900,
+                outline: 'none',
+                background: theme.surface,
+                color: theme.text,
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Contact email (optional)</label>
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="admin@supplier.com"
+              style={{
+                width: '100%',
+                padding: 10,
+                border: `2px solid ${theme.text}`,
+                borderRadius: theme.radiusSm,
+                fontWeight: 900,
+                outline: 'none',
+                background: theme.surface,
+                color: theme.text,
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => void submit()}
+            disabled={busy}
+            style={{
+              padding: '12px 16px',
+              border: `2px solid ${theme.accentDark}`,
+              background: theme.accent,
+              color: '#fff',
+              cursor: busy ? 'not-allowed' : 'pointer',
+              fontWeight: 1100,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.accentDark}`,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {busy ? 'Registering…' : 'Register & get code'}
+          </button>
+
+          <a href="#business-login" style={{ fontWeight: 1050, color: theme.text, textDecoration: 'underline' }}>
+            I already have a code
+          </a>
+        </div>
+
+        {businessCode ? (
+          <div style={{ marginTop: 16, padding: 12, border: `2px dashed ${theme.borderStrong}`, borderRadius: theme.radiusSm, background: theme.accentPillBg }}>
+            <div style={{ fontWeight: 1100, marginBottom: 6, color: theme.text }}>Your business code</div>
+            <div style={{ fontWeight: 1100, fontSize: 18, color: theme.text }}>{businessCode}</div>
+            <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12.5 }}>
+              You’ve been logged in automatically.
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}

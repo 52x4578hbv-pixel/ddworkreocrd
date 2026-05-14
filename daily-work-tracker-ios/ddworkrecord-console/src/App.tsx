@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { theme } from './lib/theme'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import AddDailyRecord from './pages/AddDailyRecord'
@@ -16,9 +17,14 @@ import SupplierReports from './pages/SupplierReports'
 import JobsList from './pages/JobsList'
 import SupplierStopsList from './pages/SupplierStopsList'
 import FuelStopsList from './pages/FuelStopsList'
+import BusinessRegister from './pages/BusinessRegister'
+import BusinessLogin from './pages/BusinessLogin'
+import BusinessDashboard from './pages/BusinessDashboard'
+import Home from './pages/Home'
 
 // Routes are based on the URL hash (no React Router in this project)
 type Route =
+  | 'home'
   | 'login'
   | 'dashboard'
   | 'add'
@@ -35,11 +41,32 @@ type Route =
   | 'supplier-list'
   | 'fuel-list'
   | 'supplier-reports'
+  | 'business-register'
+  | 'business-login'
+  | 'business-dashboard'
 
 function getRouteFromHash(): Route {
   const raw = window.location.hash.replace('#', '').replace(/^\//, '')
   const h = raw.split('?')[0]
-  if (h === 'dashboard') return 'dashboard'
+
+  const safeGetItem = (key: string): string | null => {
+    try {
+      return localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  }
+
+  const businessCode = safeGetItem('ddworkrecord_business_code')
+  const adminToken = safeGetItem('ddworkrecord_admin_token')
+
+  // Priority redirects when no hash is provided (public landing page)
+  if (!h) {
+    if (businessCode) return 'business-dashboard'
+    if (adminToken) return 'dashboard'
+    return 'home'
+  }
+
   if (h === 'add') return 'add'
   if (h === 'records') return 'records'
   if (h === 'reports') return 'reports'
@@ -48,6 +75,9 @@ function getRouteFromHash(): Route {
   if (h === 'token-viewer') return 'token-viewer'
   if (h === 'local-preview') return 'local-preview'
   if (h === 'dummy-local-preview') return 'dummy-local-preview'
+  if (h === 'business-register') return 'business-register'
+  if (h === 'business-login') return 'business-login'
+  if (h === 'business-dashboard') return 'business-dashboard'
   if (h === 'jobs') return 'jobs'
   if (h === 'jobs-list') return 'jobs-list'
   if (h === 'supplier-list') return 'supplier-list'
@@ -57,7 +87,8 @@ function getRouteFromHash(): Route {
   if (h.startsWith('employee/')) return h
   if (h.startsWith('record/')) return h
 
-  return 'login'
+  // Fallback (unknown hash)
+  return businessCode ? 'business-dashboard' : 'home'
 }
 
 function Navigation({ current }: { current: Route }) {
@@ -76,18 +107,59 @@ function Navigation({ current }: { current: Route }) {
   ]
 
   return (
-    <nav style={{ background: '#0f172a', padding: '14px 24px', display: 'flex', gap: 20, alignItems: 'center', color: '#fff' }}>
-      <div style={{ fontWeight: 1000, fontSize: 18, marginRight: 10 }}>DD Console</div>
-      {links.map((l) => (
-        <a 
-          key={l.h} 
-          href={l.h} 
-          style={{ color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 800, opacity: current.startsWith(l.r) ? 1 : 0.6 }}
-        >
-          {l.label}
-        </a>
-      ))}
-      <a href="#login" style={{ marginLeft: 'auto', color: '#94a3b8', textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>Logout</a>
+    <nav
+      style={{
+        background: theme.topBarBg,
+        padding: '14px 24px',
+        display: 'flex',
+        gap: 20,
+        alignItems: 'center',
+        color: theme.text,
+        borderBottom: `1px solid ${theme.borderSoft}`,
+        position: 'sticky',
+        top: 0,
+        zIndex: 9,
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <div style={{ fontWeight: 1100, fontSize: 18, marginRight: 10 }}>DD Console</div>
+      {links.map((l) => {
+        const isActive = current.startsWith(l.r)
+        return (
+          <a
+            key={l.h}
+            href={l.h}
+            style={{
+              color: isActive ? theme.text : theme.muted,
+              textDecoration: 'none',
+              fontSize: 13,
+              fontWeight: 900,
+              opacity: isActive ? 1 : 0.9,
+              borderBottom: isActive ? `2px solid ${theme.accent}` : '2px solid transparent',
+              paddingBottom: 2,
+            }}
+          >
+            {l.label}
+          </a>
+        )
+      })}
+      <a
+        href="#login"
+        onClick={() => {
+          localStorage.removeItem('ddworkrecord_admin_token')
+          localStorage.removeItem('ddworkrecord_business_code')
+        }}
+        style={{
+          marginLeft: 'auto',
+          color: theme.muted,
+          textDecoration: 'none',
+          fontSize: 13,
+          fontWeight: 950,
+          borderBottom: `2px solid transparent`,
+        }}
+      >
+        Logout
+      </a>
     </nav>
   )
 }
@@ -118,13 +190,24 @@ export default function App() {
     if (route === 'supplier-list') return <SupplierStopsList />
     if (route === 'fuel-list') return <FuelStopsList />
     if (route === 'supplier-reports') return <SupplierReports />
+    if (route === 'business-register') return <BusinessRegister />
+    if (route === 'business-login') return <BusinessLogin />
+    if (route === 'business-dashboard') return <BusinessDashboard />
+    if (route === 'home') return <Home />
     return <Login />
   }, [route])
 
-  const showNav = route !== 'login' && route !== 'local-preview' && route !== 'dummy-local-preview'
+  const showNav =
+    route !== 'login' &&
+    route !== 'home' &&
+    route !== 'local-preview' &&
+    route !== 'dummy-local-preview' &&
+    route !== 'business-register' &&
+    route !== 'business-login' &&
+    route !== 'business-dashboard'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
+    <div style={{ minHeight: '100vh', background: theme.pageBg }}>
       {showNav && <Navigation current={route} />}
       <div>{content}</div>
     </div>
