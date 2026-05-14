@@ -100,7 +100,14 @@ jobs:
           wc -c /tmp/dw-build-context/Dockerfile || true
           head -n 30 /tmp/dw-build-context/Dockerfile || true
 
+          DOCKERFILE_BYTES="$(wc -c /tmp/dw-build-context/Dockerfile 2>/dev/null | awk '{print $1}' || true)"
+          echo "::notice title=Patched Dockerfile bytes::${DOCKERFILE_BYTES:-unknown}"
+          if [ -z "${DOCKERFILE_BYTES}" ] || [ "${DOCKERFILE_BYTES}" = "0" ]; then
+            echo "::error title=Patched Dockerfile empty::/tmp/dw-build-context/Dockerfile is empty or missing"
+          fi
+
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
+          echo "== Patched Dockerfile bytes: ${DOCKERFILE_BYTES:-unknown} ==" >> "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
           set -o pipefail
           set +e
           docker build --progress=plain \
@@ -109,13 +116,13 @@ jobs:
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
             /tmp/dw-build-context 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
-          build_status=${PIPESTATUS[0]}
+          build_status="${PIPESTATUS[0]:-1}"
           set -e
           echo "Docker build status: $build_status"
           echo "== docker-build.log bytes =="
           wc -c "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" || true
 
-          if [ $build_status -ne 0 ]; then
+          if [ "${build_status}" != "0" ]; then
             echo "== Docker build failed — tail log =="
             tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" || true
 
@@ -130,12 +137,12 @@ jobs:
           set -o pipefail
           set +e
           docker push --progress=plain "$IMAGE" 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
-          push_status=${PIPESTATUS[0]}
+          push_status="${PIPESTATUS[0]:-1}"
           set -e
           echo "== docker-push.log bytes =="
           wc -c "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
 
-          if [ $push_status -ne 0 ]; then
+          if [ "${push_status}" != "0" ]; then
             echo "== Docker push failed — tail log =="
             tail -n 200 "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
 
