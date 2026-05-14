@@ -74,9 +74,28 @@ jobs:
           ls -la
           echo "--- daily-work-tracker-ios ls ---"
           ls -la "$SOURCE_DIR/daily-work-tracker-ios" || true
-          echo "--- daily-work-tracker-ios/DW ls ---"
-          ls -la "$SOURCE_DIR/daily-work-tracker-ios/DW" || true
-          test -f "$SOURCE_DIR/daily-work-tracker-ios/DW/Dockerfile"
+
+          DW_DOCKERFILE="$SOURCE_DIR/daily-work-tracker-ios/DW/Dockerfile"
+          CONSOLE_DOCKERFILE="$SOURCE_DIR/daily-work-tracker-ios/ddworkrecord-console/Dockerfile"
+
+          PATCH_DW="false"
+          CONTEXT_SUBDIR=""
+          if [ -f "$DW_DOCKERFILE" ]; then
+            CONTEXT_SUBDIR="daily-work-tracker-ios/DW"
+            PATCH_DW="true"
+            echo "Detected DW Dockerfile ✅"
+          elif [ -f "$CONSOLE_DOCKERFILE" ]; then
+            CONTEXT_SUBDIR="daily-work-tracker-ios/ddworkrecord-console"
+            echo "DW Dockerfile not present; falling back to console Dockerfile ✅"
+          else
+            echo "::error title=No Dockerfile found::Neither DW/Dockerfile nor ddworkrecord-console/Dockerfile exists in extracted source"
+            ls -la "$SOURCE_DIR/daily-work-tracker-ios" || true
+            exit 1
+          fi
+
+          echo "--- using CONTEXT_SUBDIR=$CONTEXT_SUBDIR =="
+          ls -la "$SOURCE_DIR/$CONTEXT_SUBDIR" || true
+          test -f "$SOURCE_DIR/$CONTEXT_SUBDIR/Dockerfile"
           echo "Dockerfile exists ✅"
 
           echo "== Building Docker image from /tmp context (avoid git tooling) =="
@@ -92,30 +111,34 @@ jobs:
             --exclude .LSOverride \
             --exclude .Spotlight-V100 \
             --exclude .Trashes \
-            "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/ \
+            "$SOURCE_DIR/$CONTEXT_SUBDIR/" /tmp/dw-build-context/ \
             || { echo "::error title=rsync failed::"; ls -la /tmp || true; ls -la /tmp/dw-build-context || true; exit 1; }
 
           echo "== Build context contents (sanity check) =="
           ls -la /tmp/dw-build-context || true
           if [ ! -s /tmp/dw-build-context/Dockerfile ]; then
-            echo "::error title=Missing/empty DW/Dockerfile in build context::/tmp/dw-build-context/Dockerfile is missing or empty"
+            echo "::error title=Missing/empty Dockerfile in build context::/tmp/dw-build-context/Dockerfile is missing or empty"
             exit 1
           fi
 
-          echo "== Patching DW tsconfig.json: set compilerOptions.types=['node'] =="
-          if ! grep -q '"types"' /tmp/dw-build-context/tsconfig.json; then
-            # Insert `types` right after the `rootDir` line (robust, avoids complex quoting).
-            sed -i '/"rootDir": "\.\/",/a\    "types": ["node"],' /tmp/dw-build-context/tsconfig.json
+          if [ "${PATCH_DW}" = "true" ]; then
+            echo "== Patching DW tsconfig.json: set compilerOptions.types=['node'] =="
+            if ! grep -q '"types"' /tmp/dw-build-context/tsconfig.json 2>/dev/null; then
+              # Insert `types` right after the `rootDir` line (robust, avoids complex quoting).
+              sed -i '/"rootDir": "\.\/",/a\    "types": ["node"],' /tmp/dw-build-context/tsconfig.json
+            fi
+
+            echo "== Patching DW Dockerfile: remove bogus @types/* 2 directories =="
+            # Docker install may create empty dirs named like: node_modules/@types/express 2
+            # These trigger TS2688 when tsc scans all @types folders.
+            cp /tmp/dw-build-context/Dockerfile /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=cp Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
+            sed -i "/^RUN npm install\$/a RUN find node_modules\/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true" /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=sed Dockerfile patch failed::"; ls -la /tmp/dw-build-context || true; head -n 30 /tmp/dw-build-context/Dockerfile.patched || true; exit 1; }
+            mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile || { echo "::error title=mv patched Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
+          else
+            echo "== Skipping DW patching (using console Dockerfile build context) =="
           fi
 
-          echo "== Patching DW Dockerfile: remove bogus @types/* 2 directories =="
-          # Docker install may create empty dirs named like: node_modules/@types/express 2
-          # These trigger TS2688 when tsc scans all @types folders.
-          cp /tmp/dw-build-context/Dockerfile /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=cp Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
-          sed -i "/^RUN npm install\$/a RUN find node_modules\/@types -maxdepth 1 -type d -name \"* 2\" -exec rm -rf {} + || true" /tmp/dw-build-context/Dockerfile.patched || { echo "::error title=sed Dockerfile patch failed::"; ls -la /tmp/dw-build-context || true; head -n 30 /tmp/dw-build-context/Dockerfile.patched || true; exit 1; }
-          mv /tmp/dw-build-context/Dockerfile.patched /tmp/dw-build-context/Dockerfile || { echo "::error title=mv patched Dockerfile failed::"; ls -la /tmp/dw-build-context || true; exit 1; }
-
-          echo "== Patched Dockerfile sanity =="
+          echo "== Patched/Dockerfile sanity =="
           wc -c /tmp/dw-build-context/Dockerfile || true
           head -n 30 /tmp/dw-build-context/Dockerfile || true
 
