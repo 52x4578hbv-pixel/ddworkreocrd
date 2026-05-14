@@ -282,7 +282,7 @@ jobs:
             az webapp config appsettings set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --settings PORT="${{ needs.build-and-push.outputs.app_port }}"
+              --settings PORT="${{ needs.build-and-push.outputs.app_port }}" WEBSITES_PORT="${{ needs.build-and-push.outputs.app_port }}"
 
             az webapp restart \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
