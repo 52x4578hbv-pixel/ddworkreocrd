@@ -98,7 +98,7 @@ jobs:
 
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
           set +e
-          docker build \
+          docker build --progress=plain \
             --pull \
             --no-cache \
             --tag "$IMAGE" \
@@ -107,6 +107,8 @@ jobs:
           build_status=$?
           set -e
           echo "Docker build status: $build_status"
+          echo "== docker-build.log bytes =="
+          wc -c "${GITHUB_WORKSPACE:-/tmp}/docker-build.log" || true
 
           if [ $build_status -ne 0 ]; then
             echo "== Docker build failed — tail log =="
@@ -121,9 +123,11 @@ jobs:
           echo "== Pushing Docker image =="
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
           set +e
-          docker push "$IMAGE" > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" 2>&1
+          docker push --progress=plain "$IMAGE" > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" 2>&1
           push_status=$?
           set -e
+          echo "== docker-push.log bytes =="
+          wc -c "${GITHUB_WORKSPACE:-/tmp}/docker-push.log" || true
 
           if [ $push_status -ne 0 ]; then
             echo "== Docker push failed — tail log =="
