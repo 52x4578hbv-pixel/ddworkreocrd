@@ -89,13 +89,14 @@ jobs:
           fi
 
           rm -f /tmp/docker-build.log
+          : > /tmp/docker-build.log
           docker build \
             --pull \
             --no-cache \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context > /tmp/docker-build.log 2>&1
-          build_status=$?
+            /tmp/dw-build-context 2>&1 | tee /tmp/docker-build.log
+          build_status=${PIPESTATUS[0]}
 
           if [ $build_status -ne 0 ]; then
             echo "== Docker build failed — tail log =="
@@ -109,8 +110,8 @@ jobs:
 
           echo "== Pushing Docker image =="
           rm -f /tmp/docker-push.log
-          docker push "$IMAGE" > /tmp/docker-push.log 2>&1
-          push_status=$?
+          docker push "$IMAGE" 2>&1 | tee /tmp/docker-push.log
+          push_status=${PIPESTATUS[0]}
 
           if [ $push_status -ne 0 ]; then
             echo "== Docker push failed — tail log =="
