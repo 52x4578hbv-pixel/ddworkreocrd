@@ -46,10 +46,18 @@ jobs:
           set -euo pipefail
           IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
 
-          echo "== Checking build context and Dockerfile paths =="
-          ls -la ./daily-work-tracker-ios/DW
+          echo "== Diagnostics: where are we and what is checked out? =="
+          pwd
+          echo "--- repo root ls ---"
+          ls -la
+          echo "--- daily-work-tracker-ios ls ---"
+          ls -la ./daily-work-tracker-ios || true
+          echo "--- daily-work-tracker-ios/DW ls ---"
+          ls -la ./daily-work-tracker-ios/DW || true
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
+
+          echo "== Checking build context and Dockerfile paths =="
 
           echo "== Building Docker image from /tmp context (avoid git tooling) =="
           export DOCKER_BUILDKIT=0
