@@ -78,23 +78,37 @@ jobs:
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
           rm -f /tmp/docker-build.log
-          if ! docker build \
+          docker build \
             --pull \
             --no-cache \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
-            /tmp/dw-build-context 2>&1 | tee /tmp/docker-build.log; then
+            /tmp/dw-build-context > /tmp/docker-build.log 2>&1
+          build_status=$?
+
+          if [ $build_status -ne 0 ]; then
             echo "== Docker build failed — tail log =="
             tail -n 200 /tmp/docker-build.log || true
-            exit 1
+
+            tail_msg="$(tail -n 40 /tmp/docker-build.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
+            echo "::error title=Docker build failed::${tail_msg}"
+
+            exit $build_status
           fi
 
           echo "== Pushing Docker image =="
           rm -f /tmp/docker-push.log
-          if ! docker push "$IMAGE" 2>&1 | tee /tmp/docker-push.log; then
+          docker push "$IMAGE" > /tmp/docker-push.log 2>&1
+          push_status=$?
+
+          if [ $push_status -ne 0 ]; then
             echo "== Docker push failed — tail log =="
             tail -n 200 /tmp/docker-push.log || true
-            exit 1
+
+            tail_msg="$(tail -n 40 /tmp/docker-push.log | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-800)"
+            echo "::error title=Docker push failed::${tail_msg}"
+
+            exit $push_status
           fi
 
       - name: Copy docker logs to workspace
