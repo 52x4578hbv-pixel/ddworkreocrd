@@ -121,6 +121,10 @@ jobs:
             cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" /tmp/dw-build-context/DW/businessRoutes.ts
             echo "== Patched DW server/businessRoutes files =="
             ls -la /tmp/dw-build-context/DW/server.ts /tmp/dw-build-context/DW/businessRoutes.ts || true
+            echo "== DEBUG head(DW/server.ts) =="
+            head -n 20 /tmp/dw-build-context/DW/server.ts || true
+            echo "== DEBUG head(DW/businessRoutes.ts) =="
+            head -n 20 /tmp/dw-build-context/DW/businessRoutes.ts || true
           fi
 
           echo "== Build context contents (sanity check) =="
