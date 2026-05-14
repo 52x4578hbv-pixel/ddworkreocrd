@@ -178,7 +178,7 @@ jobs:
           : > "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
           set -o pipefail
           set +e
-          docker push --progress=plain "$IMAGE" 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
+          docker push "$IMAGE" 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-push.log"
           push_status="${PIPESTATUS[0]:-1}"
           set -e
           echo "== docker-push.log bytes =="
