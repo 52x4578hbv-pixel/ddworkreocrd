@@ -83,6 +83,13 @@ jobs:
             --exclude .Trashes \
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
+          echo "== Build context contents (sanity check) =="
+          ls -la /tmp/dw-build-context || true
+          if [ ! -s /tmp/dw-build-context/Dockerfile ]; then
+            echo "::error title=Missing/empty DW/Dockerfile in build context::/tmp/dw-build-context/Dockerfile is missing or empty"
+            exit 1
+          fi
+
           echo "== Patching DW tsconfig.json: set compilerOptions.types=['node'] =="
           if ! grep -q '"types"' /tmp/dw-build-context/tsconfig.json; then
             # Insert `types` right after the `rootDir` line (robust, avoids complex quoting).
