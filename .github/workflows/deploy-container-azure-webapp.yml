@@ -46,6 +46,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute image name (lowercase)
+        shell: bash
         run: |
           echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
@@ -65,8 +66,6 @@ jobs:
           ls -la "$SOURCE_DIR/daily-work-tracker-ios/DW" || true
           test -f "$SOURCE_DIR/daily-work-tracker-ios/DW/Dockerfile"
           echo "Dockerfile exists ✅"
-
-          echo "== Checking build context and Dockerfile paths =="
 
           echo "== Building Docker image from /tmp context (avoid git tooling) =="
 
@@ -97,6 +96,24 @@ jobs:
             tail -n 200 /tmp/docker-push.log || true
             exit 1
           fi
+
+      - name: Copy docker logs to workspace
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -f /tmp/docker-build.log "$GITHUB_WORKSPACE/docker-build.log" || true
+          cp -f /tmp/docker-push.log "$GITHUB_WORKSPACE/docker-push.log" || true
+
+      - name: Upload docker logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          path: |
+            ${{ github.workspace }}/docker-build.log
+            ${{ github.workspace }}/docker-push.log
 
   deploy:
     runs-on: ubuntu-latest
