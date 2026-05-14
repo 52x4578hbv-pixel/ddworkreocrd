@@ -53,7 +53,8 @@ jobs:
       - name: Build and push image
         shell: bash
         run: |
-          set +euo pipefail
+          set -euo pipefail
+          SOURCE_DIR=/tmp/src
           IMAGE="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
 
           echo "== Diagnostics: where are we and what is checked out? =="
