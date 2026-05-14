@@ -66,7 +66,7 @@ jobs:
 
           # If anything fails before we reach docker build, we still want a useful log file.
           set -E
-          trap "echo \"!! failure at line \$LINENO (exit \$?)\" >> \"\$LOG_BUILD\"" ERR
+          trap "echo \"!! failure at line \$LINENO (exit \$?) cmd=\$BASH_COMMAND\" >> \"\$LOG_BUILD\"" ERR
 
           echo "== Diagnostics: where are we and what is checked out? =="
           pwd
