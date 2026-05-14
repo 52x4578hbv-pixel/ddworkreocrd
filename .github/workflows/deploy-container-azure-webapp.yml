@@ -82,6 +82,10 @@ jobs:
             --exclude .Trashes \
             "$SOURCE_DIR/daily-work-tracker-ios/DW/" /tmp/dw-build-context/
 
+          echo "== Patching DW Dockerfile to remove bogus @types/* 2 directories =="
+          # These empty dirs (e.g. @types/express 2) make tsc fail with TS2688.
+          sed -i "/RUN npm install/a RUN rm -rf node_modules/@types/*\\ 2 || true" /tmp/dw-build-context/Dockerfile
+
           rm -f /tmp/docker-build.log
           docker build \
             --pull \
