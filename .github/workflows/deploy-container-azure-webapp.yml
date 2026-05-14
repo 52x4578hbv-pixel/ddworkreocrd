@@ -127,15 +127,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is not set}"
+          touch "$GITHUB_WORKSPACE/docker-build.log" "$GITHUB_WORKSPACE/docker-push.log"
           cp -f /tmp/docker-build.log "$GITHUB_WORKSPACE/docker-build.log" || true
           cp -f /tmp/docker-push.log "$GITHUB_WORKSPACE/docker-push.log" || true
+
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE" | sed -n '1,60p' || true
+          echo "== docker-build.log stats =="
+          ls -la "$GITHUB_WORKSPACE/docker-build.log" || true
+          echo "== docker-build.log head =="
+          head -n 40 "$GITHUB_WORKSPACE/docker-build.log" || true
 
       - name: Upload docker logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: docker-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: ignore
           path: |
             ${{ github.workspace }}/docker-build.log
             ${{ github.workspace }}/docker-push.log
