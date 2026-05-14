@@ -1,0 +1,258 @@
+import express, { Request, Response, NextFunction } from 'express'
+import crypto from 'crypto'
+import { memoryStore } from './memoryStore'
+import { getFirestore } from './firebaseAdmin'
+
+const router = express.Router()
+// NOTE: business routes are mounted under /api/v1/business in server.ts. This comment is a no-op used to force a backend redeploy.
+
+type BusinessRegisterBody = {
+  businessName?: string
+  contactEmail?: string
+}
+
+type AccessCodeRecord = {
+  tenantId: string
+  businessName?: string | null
+  createdAt?: string | null
+}
+
+/**
+ * Authenticate business by access code.
+ * Client sends: Authorization: Bearer <businessCode>
+ */
+const authenticateBusinessCode = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing Bearer access code.' })
+  }
+
+  const code = authHeader.slice('Bearer '.length).trim()
+  if (!code) return res.status(401).json({ error: 'Unauthorized: Empty access code.' })
+
+  try {
+    const firestore = getFirestore()
+    const doc = await firestore.collection('tenant_access_codes').doc(code).get()
+    if (!doc.exists) {
+      return res.status(403).json({ error: 'Forbidden: Invalid access code.' })
+    }
+
+    const d = doc.data() as AccessCodeRecord
+    if (!d?.tenantId) {
+      return res.status(403).json({ error: 'Forbidden: access code missing tenantId.' })
+    }
+
+    ;(req as any).authTenantId = d.tenantId
+    return next()
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('authenticateBusinessCode failed:', err)
+    return res.status(500).json({ error: 'Internal Server Error' })
+  }
+}
+
+const generateTenantId = () => {
+  // stable enough for Firestore doc ids
+  return `tenant_${crypto.randomBytes(6).toString('hex')}`
+}
+
+const generateAccessCode = () => {
+  // 10-ish chars, uppercase alnum
+  const raw = crypto.randomBytes(8).toString('base64').replace(/[^a-zA-Z0-9]/g, '')
+  const code = raw.slice(0, 10).toUpperCase()
+  return code
+}
+
+const pickTenantScopedFirestoreWorkdays = async (tenantId: string) => {
+  const firestore = getFirestore()
+  const snapshot = await firestore.collection('tenants').doc(tenantId).collection('workdays').get()
+  return snapshot.docs.map((doc) => {
+    const d = doc.data() as Record<string, unknown>
+    return {
+      tenantId,
+      id: doc.id,
+      employeeId: String(d.employeeId ?? d.employee_id ?? ''),
+      date: String(d.workDate ?? d.date ?? ''),
+      startMileage: (d.startMileage as number | null) ?? null,
+      endMileage: (d.endMileage as number | null) ?? null,
+      totalHours: Number(d.totalHours ?? d.total_hours ?? 0),
+      totalDistanceKm: Number(d.totalDistanceKm ?? d.total_distance_km ?? 0),
+      jobs: (Array.isArray(d.jobs) ? d.jobs : []) as any[],
+      fuels: (Array.isArray(d.fuels) ? d.fuels : []) as any[],
+      suppliers: (Array.isArray(d.suppliers) ? d.suppliers : []) as any[],
+      workshops: (Array.isArray(d.workshops) ? d.workshops : []) as unknown[],
+      travels: (Array.isArray(d.travels) ? d.travels : []) as unknown[],
+      privateSegments: (Array.isArray(d.privateSegments) ? d.privateSegments : []) as unknown[],
+      vehicleId: (d.vehicleId as string | null) ?? null,
+      endNotes: (d.endNotes as string | null) ?? null,
+      dayStartLocation: (d.dayStartLocation ?? d.day_start_location) as any,
+      dayEndLocation: (d.dayEndLocation ?? d.day_end_location) as any,
+    }
+  })
+}
+
+router.post('/register', async (req: Request, res: Response) => {
+  const body = req.body as BusinessRegisterBody | undefined
+  const businessName = (body?.businessName ?? '').toString().trim()
+  const contactEmail = (body?.contactEmail ?? '').toString().trim()
+
+  if (!businessName) {
+    return res.status(400).json({ error: 'businessName is required.' })
+  }
+
+  // You can choose to validate email later; for now allow optional.
+  if (contactEmail && !contactEmail.includes('@')) {
+    return res.status(400).json({ error: 'contactEmail looks invalid.' })
+  }
+
+  try {
+    const tenantId = generateTenantId()
+
+    // Create tenant doc (best-effort)
+    const firestore = getFirestore()
+    await firestore.collection('tenants').doc(tenantId).set(
+      {
+        tenantId,
+        businessName,
+        contactEmail: contactEmail || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+
+    // Mint an access code
+    let attempts = 0
+    while (attempts < 5) {
+      attempts += 1
+      const code = generateAccessCode()
+      const existing = await firestore.collection('tenant_access_codes').doc(code).get()
+      if (existing.exists) continue
+
+      await firestore.collection('tenant_access_codes').doc(code).set({
+        tenantId,
+        businessName,
+        contactEmail: contactEmail || null,
+        createdAt: new Date().toISOString(),
+      })
+
+      return res.json({ businessCode: code, tenantId })
+    }
+
+    return res.status(500).json({ error: 'Failed to generate access code. Try again.' })
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('business register failed:', err)
+    return res.status(500).json({ error: 'Failed to register business.' })
+  }
+})
+
+router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res: Response) => {
+  const rawPeriod = req.params.period
+  const period = Array.isArray(rawPeriod) ? rawPeriod[0] : rawPeriod
+
+  try {
+    if (!period || !['day', 'week', 'month'].includes(period)) {
+      return res.status(400).json({ error: 'Invalid period. Use day|week|month' })
+    }
+
+    const tenantId = (req as any).authTenantId as string | null
+    if (!tenantId) return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+
+    // prefer memoryStore (DB-less mode), fallback to Firestore if available
+    let all: ReturnType<typeof memoryStore.getAll> = memoryStore.getAll(tenantId) as any
+
+    try {
+      // If Firestore is configured, use it for more accurate stats
+      // (this mirrors consoleRoutes behavior).
+      const records = await pickTenantScopedFirestoreWorkdays(tenantId)
+      if (records.length) {
+        all = records as any
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('business stats firestore read failed; using memoryStore:', e)
+    }
+
+    const now = new Date()
+    const parseDate = (v: string) => new Date(`${v}T00:00:00.000Z`)
+
+    const start = (() => {
+      if (period === 'day') {
+        const d = new Date(now)
+        d.setUTCHours(0, 0, 0, 0)
+        return d
+      }
+      if (period === 'week') {
+        const d = new Date(now)
+        const day = d.getUTCDay() // Sun=0..Sat=6
+        const diff = (day + 6) % 7 // Monday-based
+        d.setUTCDate(d.getUTCDate() - diff)
+        d.setUTCHours(0, 0, 0, 0)
+        return d
+      }
+      const d = new Date(now)
+      d.setUTCDate(1)
+      d.setUTCHours(0, 0, 0, 0)
+      return d
+    })()
+
+    const end = (() => {
+      if (period === 'day') return new Date(start.getTime() + 24 * 3600 * 1000)
+      if (period === 'week') return new Date(start.getTime() + 7 * 24 * 3600 * 1000)
+      return new Date(new Date(start).setUTCMonth(start.getUTCMonth() + 1))
+    })()
+
+    const filtered = all.filter((r: any) => {
+      const d = parseDate(String(r.date ?? ''))
+      return d >= start && d < end
+    })
+
+    let grandTotalHours = 0
+    let grandTotalDistanceKm = 0
+    let grandFuelCost = 0
+    let grandSupplierSpend = 0
+
+    for (const row of filtered) {
+      const totalHours = Number(row.totalHours ?? 0)
+      const totalDistanceKm = Number(row.totalDistanceKm ?? 0)
+      grandTotalHours += totalHours
+      grandTotalDistanceKm += totalDistanceKm
+
+      const rawFuels = Array.isArray(row.fuels) ? row.fuels : []
+      const rawSuppliers = Array.isArray(row.suppliers) ? row.suppliers : []
+
+      const fuelCostSum = rawFuels.reduce((acc: number, f: any) => {
+        const v = Number(f?.totalCost ?? f?.total_cost ?? 0)
+        return acc + (Number.isFinite(v) ? v : 0)
+      }, 0)
+
+      const supplierSpendSum = rawSuppliers.reduce((acc: number, s: any) => {
+        const v = Number(s?.amountSpent ?? s?.amount_spent ?? 0)
+        return acc + (Number.isFinite(v) ? v : 0)
+      }, 0)
+
+      grandFuelCost += fuelCostSum
+      grandSupplierSpend += supplierSpendSum
+    }
+
+    return res.json({
+      period,
+      grandTotals: {
+        totalHours: grandTotalHours,
+        totalDistanceKm: grandTotalDistanceKm,
+        fuelCost: grandFuelCost,
+        supplierSpend: grandSupplierSpend,
+      },
+      // keep shape compatible with existing console dashboard typing
+      employees: [],
+    })
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('business stats failed:', err)
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return res.status(500).json({ error: 'Failed to fetch business stats', message })
+  }
+})
+
+export default router

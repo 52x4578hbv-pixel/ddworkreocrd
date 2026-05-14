@@ -113,6 +113,16 @@ jobs:
             "$SOURCE_DIR/$CONTEXT_SUBDIR/" /tmp/dw-build-context/ \
             || { echo "::error title=rsync failed::"; ls -la /tmp || true; ls -la /tmp/dw-build-context || true; exit 1; }
 
+          if [ "${PATCH_DW}" = "true" ]; then
+            echo "== Applying CI patches for DW server/businessRoutes =="
+            test -f "$SOURCE_DIR/.github/patches/dw_server.ts"
+            test -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts"
+            cp -f "$SOURCE_DIR/.github/patches/dw_server.ts" /tmp/dw-build-context/DW/server.ts
+            cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" /tmp/dw-build-context/DW/businessRoutes.ts
+            echo "== Patched DW server/businessRoutes files =="
+            ls -la /tmp/dw-build-context/DW/server.ts /tmp/dw-build-context/DW/businessRoutes.ts || true
+          fi
+
           echo "== Build context contents (sanity check) =="
           ls -la /tmp/dw-build-context || true
           if [ ! -s /tmp/dw-build-context/Dockerfile ]; then
