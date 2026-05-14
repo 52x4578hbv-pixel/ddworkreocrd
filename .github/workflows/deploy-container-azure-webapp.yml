@@ -24,13 +24,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Configure git safe.directory (before checkout)
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
-          git config --global --add safe.directory "*" || true
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -58,11 +51,7 @@ jobs:
           test -f ./daily-work-tracker-ios/DW/Dockerfile
           echo "Dockerfile exists ✅"
 
-          echo "== Configure git safe.directory (prevent /usr/bin/git exit 128) =="
-          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
-          git config --global --add safe.directory "*" || true
-
-          echo "== Building Docker image from /tmp context (avoid git repo detection) =="
+          echo "== Building Docker image from /tmp context (avoid git tooling) =="
           export DOCKER_BUILDKIT=0
 
           rm -rf /tmp/dw-build-context
