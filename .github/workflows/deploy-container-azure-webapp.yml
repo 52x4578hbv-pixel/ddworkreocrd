@@ -98,6 +98,7 @@ jobs:
 
           rm -f /tmp/docker-build.log
           : > /tmp/docker-build.log
+          set +e
           docker build \
             --pull \
             --no-cache \
@@ -105,6 +106,8 @@ jobs:
             --file /tmp/dw-build-context/Dockerfile \
             /tmp/dw-build-context 2>&1 | tee /tmp/docker-build.log
           build_status=${PIPESTATUS[0]}
+          set -e
+          echo "Docker build status: $build_status"
 
           if [ $build_status -ne 0 ]; then
             echo "== Docker build failed — tail log =="
