@@ -26,11 +26,10 @@ jobs:
     outputs:
       app_port: ${{ steps.build_and_push.outputs.app_port }}
     steps:
-      - name: Checkout (with submodules)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
