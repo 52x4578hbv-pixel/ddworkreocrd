@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   # Resource group containing the API Web App
@@ -23,6 +22,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     outputs:
       app_port: ${{ steps.build_and_push.outputs.app_port }}
     steps:
@@ -241,6 +242,8 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     needs: build-and-push
     steps:
       - name: Validate required secrets
@@ -257,9 +260,9 @@ jobs:
             exit 1
           fi
 
-          ghcr_pat='${{ secrets.GHCR_PAT }}'
-          if [ -z "$ghcr_pat" ]; then
-            echo "ERROR: Missing repo secret GHCR_PAT (needs read:packages for ghcr.io/52x4578hbv-pixel/ddworkreocrd)"
+          # Use Actions token (must not be empty). Prefer github.token because it’s always populated.
+          if [ -z "${{ github.token }}" ]; then
+            echo "ERROR: github.token is empty."
             exit 1
           fi
 
@@ -280,9 +283,11 @@ jobs:
           inlineScript: |
             set -euo pipefail
 
-            GHCR_PAT="${{ secrets.GHCR_PAT }}"
+            # Use the built-in GitHub Actions token so this workflow doesn't require a separate GHCR_PAT secret.
+            # This token is valid for the duration of the workflow and should allow Azure to pull the freshly pushed image.
+            GHCR_PAT="${{ github.token }}"
             if [ -z "$GHCR_PAT" ]; then
-              echo "ERROR: secrets.GHCR_PAT is empty."
+              echo "ERROR: github.token is empty."
               exit 1
             fi
 
@@ -320,6 +325,9 @@ jobs:
                 DOCKER_REGISTRY_SERVER_PASSWORD="$GHCR_PAT" \
                 DOCKER_ENABLE_CI="true"
 
+            # NOTE:
+            # Azure sometimes returns `DOCKER_REGISTRY_SERVER_PASSWORD: null` via the ARM query even when the runtime can still pull.
+            # The important part is that we set the container image + registry config and then restart.
             echo "DOCKER_REGISTRY_SERVER_* appsettings after set (names only):"
             az webapp config appsettings list \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
