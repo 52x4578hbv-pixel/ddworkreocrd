@@ -56,6 +56,8 @@ app.get('/__health', (_req, res) => {
     status: 'online',
     uploadsPath: uploadPath,
     uploadsWritable,
+    // Direct-in-repo marker (bypasses CI patching)
+    patchMarker: 'in_repo_server_ts_v1',
     features: { businessRoutes: true },
     env: { hasDbPassword: Boolean(process.env.DB_PASSWORD) } 
   });
