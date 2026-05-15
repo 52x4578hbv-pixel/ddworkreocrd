@@ -40,6 +40,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for large JSON workday records
 app.use('/uploads', express.static('uploads')); // Serve uploaded photos
 
+// IMPORTANT: keep this log string stable so we can grep it from Azure container logs.
 app.get('/__health', (_req, res) => {
   const uploadPath = path.resolve('./uploads/workday-photos');
   let uploadsWritable = false;
@@ -50,6 +51,8 @@ app.get('/__health', (_req, res) => {
   } catch (e) {
     uploadsWritable = false;
   }
+
+  console.log('[DW_HEALTH] patchMarker=in_repo_server_ts_v1 features.businessRoutes=true');
 
   res.status(200).json({ 
     ok: true, 
@@ -74,6 +77,9 @@ app.use('/api/v1/admin', adminRoutesHandler as any);
 app.use('/api/v1/console', consoleRoutesHandler as any);
 app.use('/api/v1/workday', syncRoutesHandler as any);
 app.use('/api/v1/media', mediaRoutesHandler as any);
+
+console.log('[DW_MOUNT] mounting /api/v1/business');
+
 app.use('/api/v1/business', businessRoutesHandler as any);
 
 // Start Server
