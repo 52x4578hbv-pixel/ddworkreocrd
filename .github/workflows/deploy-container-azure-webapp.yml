@@ -79,9 +79,9 @@ jobs:
           APP_PORT="4173"
           if [ -f "$DW_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/DW"
-            PATCH_DW="false"
+            PATCH_DW="true"
             APP_PORT="3000"
-            echo "Detected DW Dockerfile ✅ (no CI patch overlay)"
+            echo "Detected DW Dockerfile ✅ (CI patch overlay ON)"
           elif [ -f "$CONSOLE_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/ddworkrecord-console"
             echo "DW Dockerfile not present; falling back to console Dockerfile ✅"
