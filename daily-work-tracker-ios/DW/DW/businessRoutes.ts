@@ -255,4 +255,16 @@ router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res:
   }
 })
 
+// Debug fallback: if `/api/v1/business/*` is mounted but a specific route isn't,
+// this will confirm businessRoutes is live and show the requested path.
+router.use((req: Request, res: Response) => {
+  res.status(200).json({
+    ok: true,
+    handler: 'businessRoutes',
+    mounted: true,
+    request: { method: req.method, path: req.path },
+    routesHint: 'expected POST /register and GET /stats/:period',
+  })
+})
+
 export default router
