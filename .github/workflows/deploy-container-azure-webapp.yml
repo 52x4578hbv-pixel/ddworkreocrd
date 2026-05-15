@@ -276,31 +276,38 @@ jobs:
             IMAGE_FULL="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
             IMAGE_NAME_TAG="${{ env.REPO }}:${{ github.sha }}"
 
-            echo "Setting container image to: $IMAGE_FULL (using docker-custom-image-name=$IMAGE_NAME_TAG)"
+            echo "Setting container image to: $IMAGE_FULL"
 
-            az webapp config container set \
+            # App Service containers: force Docker runtime stack via linux-fx-version + DOCKER_* app settings.
+            # This is more reliable than `az webapp config container set` for some container setups.
+            az webapp config set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --docker-custom-image-name "$IMAGE_FULL" \
-              --docker-registry-server-url "https://ghcr.io" \
-              --docker-registry-server-user "${{ github.actor }}" \
-              --docker-registry-server-password "${{ secrets.GITHUB_TOKEN }}"
+              --linux-fx-version "DOCKER|${IMAGE_FULL}"
 
-            echo "Container config after set:"
-            CONTAINER_CFG="$(az webapp config container show \
+            az webapp config appsettings set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
-              --output json)"
+              --settings \
+                DOCKER_CUSTOM_IMAGE_NAME="${IMAGE_FULL}" \
+                DOCKER_REGISTRY_SERVER_URL="https://ghcr.io" \
+                DOCKER_REGISTRY_SERVER_USERNAME="${{ github.actor }}" \
+                DOCKER_REGISTRY_SERVER_PASSWORD="${{ secrets.GITHUB_TOKEN }}"
 
-            echo "$CONTAINER_CFG"
+            echo "Container runtime stack after set:"
+            az webapp config show \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --query "{linuxFxVersion: linuxFxVersion}" \
+              --output json
 
-            {
-              echo "## Azure container config"
-              echo ""
-              echo "\`\`\`json"
-              echo "$CONTAINER_CFG"
-              echo "\`\`\`"
-            } >> "$GITHUB_STEP_SUMMARY"
+            echo "App settings (DOCKER_*):"
+            az webapp config appsettings list \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --query "[?starts_with(name,'DOCKER_')].{name:name,value:value}" \
+              --output json
+
 
             # Ensure container listens on the port the Azure Web App expects.
             az webapp config appsettings set \
