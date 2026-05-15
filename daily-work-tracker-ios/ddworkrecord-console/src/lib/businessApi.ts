@@ -1,6 +1,6 @@
 import type { Period } from './api'
 
-const DEFAULT_API_BASE_URL = 'https://daily-work-tracker-api.azurewebsites.net'
+const DEFAULT_API_BASE_URL = 'https://ddworkapi-1778615679.azurewebsites.net'
 
 const API_BASE_URL = (() => {
   // optional env override; keep consistent behavior with admin api helper
