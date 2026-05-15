@@ -147,6 +147,15 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 })
 
+router.get('/debug', (_req: Request, res: Response) => {
+  res.status(200).json({
+    ok: true,
+    status: 'debug',
+    buildSha: process.env.BUILD_SHA ?? null,
+    features: { businessRoutes: true },
+  })
+})
+
 router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res: Response) => {
   const rawPeriod = req.params.period
   const period = Array.isArray(rawPeriod) ? rawPeriod[0] : rawPeriod

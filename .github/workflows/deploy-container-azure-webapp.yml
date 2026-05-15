@@ -79,9 +79,9 @@ jobs:
           APP_PORT="4173"
           if [ -f "$DW_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/DW"
-            PATCH_DW="true"
+            PATCH_DW="false"
             APP_PORT="3000"
-            echo "Detected DW Dockerfile ✅"
+            echo "Detected DW Dockerfile ✅ (no CI patch overlay)"
           elif [ -f "$CONSOLE_DOCKERFILE" ]; then
             CONTEXT_SUBDIR="daily-work-tracker-ios/ddworkrecord-console"
             echo "DW Dockerfile not present; falling back to console Dockerfile ✅"
@@ -319,6 +319,14 @@ jobs:
                 DOCKER_REGISTRY_SERVER_USERNAME="${{ github.actor }}" \
                 DOCKER_REGISTRY_SERVER_PASSWORD="$GHCR_PAT" \
                 DOCKER_ENABLE_CI="true"
+
+            echo "DOCKER_REGISTRY_SERVER_* appsettings after set (names only):"
+            az webapp config appsettings list \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --output json \
+              --query "[?starts_with(name, 'DOCKER_REGISTRY_SERVER_')].name" \
+              --output tsv || true
 
             echo "Container runtime stack after set:"
             az webapp config show \
