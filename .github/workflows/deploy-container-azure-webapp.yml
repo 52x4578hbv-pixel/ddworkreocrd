@@ -289,7 +289,7 @@ jobs:
               --container-image-name "$IMAGE_FULL" \
               --container-registry-url "https://ghcr.io" \
               --container-registry-user "${{ github.actor }}" \
-              --container-registry-password "${{ secrets.GITHUB_TOKEN }}"
+              --container-registry-password "${{ github.token }}"
 
             echo "Container config after set:"
             az webapp config container show \
