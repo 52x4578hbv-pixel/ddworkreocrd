@@ -52,18 +52,19 @@ app.get('/__health', (_req, res) => {
     uploadsWritable = false;
   }
 
-  console.log('[DW_HEALTH] patchMarker=in_repo_server_ts_v1 features.businessRoutes=true');
+  console.log('[DW_HEALTH] patchMarker=in_repo_server_ts_v2 features.businessRoutes=true');
 
-  res.status(200).json({ 
-    ok: true, 
+  res.status(200).json({
+    ok: true,
     status: 'online',
     uploadsPath: uploadPath,
     uploadsWritable,
     // Direct-in-repo marker (bypasses CI patching)
-    patchMarker: 'in_repo_server_ts_v1',
+    patchMarker: 'in_repo_server_ts_v2',
     features: { businessRoutes: true },
-    version: 'in_repo_server_ts_v1__backend_smoke_20260515',
-    env: { hasDbPassword: Boolean(process.env.DB_PASSWORD) } 
+    buildSha: process.env.BUILD_SHA ?? null,
+    version: 'in_repo_server_ts_v2__backend_smoke_20260515',
+    env: { hasDbPassword: Boolean(process.env.DB_PASSWORD) }
   });
 });
 
