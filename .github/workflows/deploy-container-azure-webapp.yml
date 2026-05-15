@@ -278,11 +278,14 @@ jobs:
 
             echo "Setting container image to: $IMAGE_FULL"
 
-            # IMPORTANT:
-            # `az webapp config appsettings set DOCKER_*` is NOT reliably persisted into the container settings that
-            # `az webapp config container show` reports (registry password often stays null).
-            #
-            # So we must set *container settings* directly.
+            # Force Docker runtime stack via linuxFxVersion.
+            # Without this, `linuxFxVersion` can remain null and the app may keep serving the previous container code.
+            az webapp config set \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --linux-fx-version "DOCKER|${IMAGE_FULL}"
+
+            # Set container registry credentials + image for the runtime.
             az webapp config container set \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ env.AZURE_WEBAPP_NAME }}" \
@@ -290,6 +293,13 @@ jobs:
               --container-registry-url "https://ghcr.io" \
               --container-registry-user "${{ github.actor }}" \
               --container-registry-password "${{ github.token }}"
+
+            echo "Container runtime stack after set:"
+            az webapp config show \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_WEBAPP_NAME }}" \
+              --query "{linuxFxVersion: linuxFxVersion}" \
+              --output json
 
             echo "Container config after set:"
             az webapp config container show \
