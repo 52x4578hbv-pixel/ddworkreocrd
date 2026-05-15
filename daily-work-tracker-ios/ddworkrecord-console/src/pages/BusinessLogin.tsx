@@ -23,15 +23,10 @@ export default function BusinessLogin() {
 
     setBusy(true)
     try {
+      // Save code first, then route.
+      // BusinessDashboard will load the stats and show any auth/error state there.
       localStorage.setItem('ddworkrecord_business_code', trimmed)
-      // quick smoke test: verify auth works + business has access
-      await fetchBusinessStats(period)
-      setHasData(true)
       window.location.hash = '#business-dashboard'
-    } catch {
-      setHasData(false)
-      setError('Code not valid.')
-      localStorage.removeItem('ddworkrecord_business_code')
     } finally {
       setBusy(false)
     }
