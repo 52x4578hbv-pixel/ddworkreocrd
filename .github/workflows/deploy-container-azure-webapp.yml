@@ -118,14 +118,14 @@ jobs:
             echo "== Applying CI patches for DW server/businessRoutes =="
             test -f "$SOURCE_DIR/.github/patches/dw_server.ts"
             test -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts"
-            cp -f "$SOURCE_DIR/.github/patches/dw_server.ts" /tmp/dw-build-context/DW/DW/server.ts
-            cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" /tmp/dw-build-context/DW/DW/businessRoutes.ts
-            echo "== Patched DW/DW server/businessRoutes files =="
-            ls -la /tmp/dw-build-context/DW/DW/server.ts /tmp/dw-build-context/DW/DW/businessRoutes.ts || true
-            echo "== DEBUG head(DW/DW/server.ts) =="
-            head -n 20 /tmp/dw-build-context/DW/DW/server.ts || true
-            echo "== DEBUG head(DW/DW/businessRoutes.ts) =="
-            head -n 20 /tmp/dw-build-context/DW/DW/businessRoutes.ts || true
+            cp -f "$SOURCE_DIR/.github/patches/dw_server.ts" /tmp/dw-build-context/DW/server.ts
+            cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" /tmp/dw-build-context/DW/businessRoutes.ts
+            echo "== Patched DW/server/businessRoutes files =="
+            ls -la /tmp/dw-build-context/DW/server.ts /tmp/dw-build-context/DW/businessRoutes.ts || true
+            echo "== DEBUG head(DW/server.ts) =="
+            head -n 20 /tmp/dw-build-context/DW/server.ts || true
+            echo "== DEBUG head(DW/businessRoutes.ts) =="
+            head -n 20 /tmp/dw-build-context/DW/businessRoutes.ts || true
           fi
 
           echo "== Build context contents (sanity check) =="
