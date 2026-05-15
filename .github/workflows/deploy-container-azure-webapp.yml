@@ -256,6 +256,12 @@ jobs:
             exit 1
           fi
 
+          ghcr_pat='${{ secrets.GHCR_PAT }}'
+          if [ -z "$ghcr_pat" ]; then
+            echo "ERROR: Missing repo secret GHCR_PAT (needs read:packages for ghcr.io/52x4578hbv-pixel/ddworkreocrd)"
+            exit 1
+          fi
+
       - name: Compute image name (lowercase)
         shell: bash
         run: |
@@ -272,6 +278,12 @@ jobs:
           azcliversion: latest
           inlineScript: |
             set -euo pipefail
+
+            GHCR_PAT="${{ secrets.GHCR_PAT }}"
+            if [ -z "$GHCR_PAT" ]; then
+              echo "ERROR: secrets.GHCR_PAT is empty."
+              exit 1
+            fi
 
             IMAGE_FULL="ghcr.io/${{ env.REPO }}:${{ github.sha }}"
             IMAGE_NAME_TAG="${{ env.REPO }}:${{ github.sha }}"
@@ -292,7 +304,7 @@ jobs:
               --container-image-name "$IMAGE_FULL" \
               --container-registry-url "https://ghcr.io" \
               --container-registry-user "${{ github.actor }}" \
-              --container-registry-password "${{ github.token }}"
+              --container-registry-password "$GHCR_PAT"
 
             echo "Container runtime stack after set:"
             az webapp config show \
