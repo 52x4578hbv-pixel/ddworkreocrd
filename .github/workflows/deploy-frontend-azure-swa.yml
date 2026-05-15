@@ -39,4 +39,4 @@ jobs:
           output_location: dist
 
           # Use the repo's existing SWA config (hash routing + CSP)
-          config_file_location: daily-work-tracker-ios/ddworkrecord-console/staticwebapp.config.json
+          config_file_location: daily-work-tracker-ios/ddworkrecord-console
