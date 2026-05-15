@@ -115,19 +115,35 @@ jobs:
             "$SOURCE_DIR/$CONTEXT_SUBDIR/" /tmp/dw-build-context/ \
             || { echo "::error title=rsync failed::"; ls -la /tmp || true; ls -la /tmp/dw-build-context || true; exit 1; }
 
-          if [ "${PATCH_DW}" = "true" ]; then
-            echo "== Applying CI patches for DW server/businessRoutes =="
-            test -f "$SOURCE_DIR/.github/patches/dw_server.ts"
-            test -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts"
-            cp -f "$SOURCE_DIR/.github/patches/dw_server.ts" /tmp/dw-build-context/DW/server.ts
-            cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" /tmp/dw-build-context/DW/businessRoutes.ts
-            echo "== Patched DW/server/businessRoutes files =="
-            ls -la /tmp/dw-build-context/DW/server.ts /tmp/dw-build-context/DW/businessRoutes.ts || true
-            echo "== DEBUG head(DW/server.ts) =="
-            head -n 20 /tmp/dw-build-context/DW/server.ts || true
-            echo "== DEBUG head(DW/businessRoutes.ts) =="
-            head -n 20 /tmp/dw-build-context/DW/businessRoutes.ts || true
-          fi
+            if [ "${PATCH_DW}" = "true" ]; then
+              echo "== Applying CI patches for DW server/businessRoutes =="
+              test -f "$SOURCE_DIR/.github/patches/dw_server.ts"
+              test -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts"
+
+              # rsync copies the DW folder contents into /tmp/dw-build-context/.
+              # Depending on repo structure, the patched TS files may need to land in one of:
+              #   /tmp/dw-build-context/DW/server.ts
+              #   /tmp/dw-build-context/DW/DW/server.ts
+              # We copy to both destinations (if the parent dirs exist) to guarantee patching.
+              for dst in "/tmp/dw-build-context/DW/server.ts" "/tmp/dw-build-context/DW/DW/server.ts"; do
+                if [ -d "$(dirname "$dst")" ]; then cp -f "$SOURCE_DIR/.github/patches/dw_server.ts" "$dst"; fi
+              done
+
+              for dst in "/tmp/dw-build-context/DW/businessRoutes.ts" "/tmp/dw-build-context/DW/DW/businessRoutes.ts"; do
+                if [ -d "$(dirname "$dst")" ]; then cp -f "$SOURCE_DIR/.github/patches/dw_businessRoutes.ts" "$dst"; fi
+              done
+
+              echo "== Patched DW/server/businessRoutes files (possible destinations) =="
+              ls -la /tmp/dw-build-context/DW/server.ts /tmp/dw-build-context/DW/businessRoutes.ts /tmp/dw-build-context/DW/DW/server.ts /tmp/dw-build-context/DW/DW/businessRoutes.ts || true
+
+              echo "== DEBUG head(server.ts) candidates =="
+              [ -f /tmp/dw-build-context/DW/server.ts ] && head -n 20 /tmp/dw-build-context/DW/server.ts || true
+              [ -f /tmp/dw-build-context/DW/DW/server.ts ] && head -n 20 /tmp/dw-build-context/DW/DW/server.ts || true
+
+              echo "== DEBUG head(businessRoutes.ts) candidates =="
+              [ -f /tmp/dw-build-context/DW/businessRoutes.ts ] && head -n 20 /tmp/dw-build-context/DW/businessRoutes.ts || true
+              [ -f /tmp/dw-build-context/DW/DW/businessRoutes.ts ] && head -n 20 /tmp/dw-build-context/DW/DW/businessRoutes.ts || true
+            fi
 
           echo "== Build context contents (sanity check) =="
           ls -la /tmp/dw-build-context || true
