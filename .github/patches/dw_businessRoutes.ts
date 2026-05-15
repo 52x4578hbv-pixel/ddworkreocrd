@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express'
 import crypto from 'crypto'
 import { memoryStore } from './memoryStore'
 import { getFirestore } from './firebaseAdmin'
+import { businessMemoryStore } from './businessMemoryStore'
 
 const router = express.Router()
 // NOTE: business routes are mounted under /api/v1/business in server.ts. This comment is a no-op used to force a backend redeploy.
@@ -45,6 +46,13 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     ;(req as any).authTenantId = d.tenantId
     return next()
   } catch (err) {
+    // Firebase not configured in this environment — fall back to in-memory business codes.
+    const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
+    if (tenantId) {
+      ;(req as any).authTenantId = tenantId
+      return next()
+    }
+
     // eslint-disable-next-line no-console
     console.error('authenticateBusinessCode failed:', err)
     return res.status(500).json({ error: 'Internal Server Error' })
@@ -143,7 +151,18 @@ router.post('/register', async (req: Request, res: Response) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('business register failed:', err)
-    return res.status(500).json({ error: 'Failed to register business.' })
+
+    // Firebase not configured in this environment — fall back to in-memory registration.
+    try {
+      return res.json(
+        businessMemoryStore.registerBusiness({
+          businessName,
+          contactEmail: contactEmail || null,
+        }),
+      )
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to register business.' })
+    }
   }
 })
 
