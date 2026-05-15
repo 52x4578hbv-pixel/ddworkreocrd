@@ -292,7 +292,8 @@ jobs:
                 DOCKER_CUSTOM_IMAGE_NAME="${IMAGE_FULL}" \
                 DOCKER_REGISTRY_SERVER_URL="https://ghcr.io" \
                 DOCKER_REGISTRY_SERVER_USERNAME="${{ github.actor }}" \
-                DOCKER_REGISTRY_SERVER_PASSWORD="${{ secrets.GITHUB_TOKEN }}"
+                # github.token is the actual runtime token; secrets.GITHUB_TOKEN appears unset in this workflow, resulting in null password on the webapp.
+                DOCKER_REGISTRY_SERVER_PASSWORD="${{ github.token }}"
 
             echo "Container runtime stack after set:"
             az webapp config show \
