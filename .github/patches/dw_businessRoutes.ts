@@ -55,7 +55,9 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
 
     // eslint-disable-next-line no-console
     console.error('authenticateBusinessCode failed:', err)
-    return res.status(500).json({ error: 'Internal Server Error' })
+    // If the code can't be resolved in fallback memory store, treat it as invalid
+    // (UI expects "Code not valid", not a 500).
+    return res.status(403).json({ error: 'Forbidden: Invalid access code.' })
   }
 }
 
