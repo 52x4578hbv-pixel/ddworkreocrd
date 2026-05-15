@@ -62,6 +62,7 @@ app.get('/__health', (_req, res) => {
     // Direct-in-repo marker (bypasses CI patching)
     patchMarker: 'in_repo_server_ts_v1',
     features: { businessRoutes: true },
+    version: 'in_repo_server_ts_v1__backend_smoke_20260515',
     env: { hasDbPassword: Boolean(process.env.DB_PASSWORD) } 
   });
 });
