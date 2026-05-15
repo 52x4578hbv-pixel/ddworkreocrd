@@ -22,6 +22,10 @@ COPY --from=builder /usr/src/app/package*.json ./
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
+# Build provenance (populated by CI)
+ARG BUILD_SHA=""
+ENV BUILD_SHA=$BUILD_SHA
+
 ENV NODE_ENV=production
 ENV PORT=3000
 # App listens on PORT (see src/server.ts)

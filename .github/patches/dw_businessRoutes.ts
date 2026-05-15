@@ -108,6 +108,8 @@ router.post('/register', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'businessName is required.' })
   }
 
+  // NOTE: business register is DB-less friendly (falls back to businessMemoryStore)
+
   // You can choose to validate email later; for now allow optional.
   if (contactEmail && !contactEmail.includes('@')) {
     return res.status(400).json({ error: 'contactEmail looks invalid.' })
@@ -164,6 +166,15 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to register business.' })
     }
   }
+})
+
+router.get('/debug', (_req: Request, res: Response) => {
+  res.status(200).json({
+    ok: true,
+    status: 'debug',
+    buildSha: process.env.BUILD_SHA ?? null,
+    features: { businessRoutes: true },
+  })
 })
 
 router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res: Response) => {

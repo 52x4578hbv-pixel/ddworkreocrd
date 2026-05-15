@@ -59,6 +59,7 @@ app.get('/__health', (_req, res) => {
     // CI patch marker to verify Azure is running the patched server.js
     patchMarker: 'dw_server_patch_v2',
     features: { businessRoutes: true },
+    buildSha: process.env.BUILD_SHA ?? null,
     env: { hasDbPassword: Boolean(process.env.DB_PASSWORD) }
   });
 });

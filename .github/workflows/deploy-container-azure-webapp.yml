@@ -169,6 +169,7 @@ jobs:
           docker build --progress=plain \
             --pull \
             --no-cache \
+            --build-arg BUILD_SHA="${{ github.sha }}" \
             --tag "$IMAGE" \
             --file /tmp/dw-build-context/Dockerfile \
             /tmp/dw-build-context 2>&1 | tee "${GITHUB_WORKSPACE:-/tmp}/docker-build.log"
