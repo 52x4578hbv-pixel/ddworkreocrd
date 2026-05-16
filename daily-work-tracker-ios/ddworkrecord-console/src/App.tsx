@@ -112,9 +112,10 @@ function Navigation({ current }: { current: Route }) {
     <nav
       style={{
         background: theme.topBarBg,
-        padding: '14px 24px',
+        padding: '10px 12px',
         display: 'flex',
-        gap: 20,
+        flexWrap: 'wrap',
+        gap: 12,
         alignItems: 'center',
         color: theme.text,
         borderBottom: `1px solid ${theme.borderSoft}`,

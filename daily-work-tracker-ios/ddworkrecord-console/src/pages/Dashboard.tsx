@@ -67,6 +67,17 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [isSmallViewport, setIsSmallViewport] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= 700
+  })
+
+  useEffect(() => {
+    const onResize = () => setIsSmallViewport(window.innerWidth <= 700)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const localPreview = isLocalPreviewMode()
   const useTemplate = localPreview || !stats
   const employeeCount = getDefaultEmployeeCount()
@@ -273,7 +284,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ marginTop: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 920 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isSmallViewport ? 520 : 920 }}>
             <thead>
               <tr style={{ background: theme.pageBg }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>Employee</th>
@@ -353,7 +364,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ marginTop: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isSmallViewport ? 520 : 640 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>Assistant</th>
