@@ -90,7 +90,7 @@ export default function Dashboard() {
   const localPreview = isLocalPreviewMode()
   const useTemplate = localPreview || !stats
 
-  const businessCode = useMemo(() => getBusinessCode(), [])
+  const businessCode = getBusinessCode()
 
   const savedEmployeeCodes = useMemo(() => {
     try {
