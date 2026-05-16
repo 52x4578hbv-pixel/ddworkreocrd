@@ -89,12 +89,49 @@ export default function Dashboard() {
 
   const localPreview = isLocalPreviewMode()
   const useTemplate = localPreview || !stats
-  const employeeCount = getDefaultEmployeeCount()
+
+  const businessCode = useMemo(() => getBusinessCode(), [])
+
+  const savedEmployeeCodes = useMemo(() => {
+    try {
+      if (!businessCode) return []
+      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_employee_codes_csv`) ?? ''
+      return raw
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+    } catch {
+      return []
+    }
+  }, [businessCode])
+
+  const savedAssistantCodes = useMemo(() => {
+    try {
+      if (!businessCode) return []
+      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_assistant_codes_csv`) ?? ''
+      return raw
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+    } catch {
+      return []
+    }
+  }, [businessCode])
+
+  const employeeCodes = useMemo(() => {
+    if (savedEmployeeCodes.length) return savedEmployeeCodes
+    return getEmployeeCodes(getDefaultEmployeeCount())
+  }, [savedEmployeeCodes])
+
+  const assistantCodes = useMemo(() => {
+    if (savedAssistantCodes.length) return savedAssistantCodes
+    return getAssistantCodes(getDefaultAssistantCount())
+  }, [savedAssistantCodes])
 
   const localBase: LocalPreviewMonthBreakdownBase = getLocalPreviewMonthBreakdownBase()
 
   const employeeRows = useMemo(() => {
-    const codes = getEmployeeCodes(employeeCount)
+    const codes = employeeCodes
 
     return codes.map((code, idx) => {
       const m = getEmployeeMultiplier(idx + 1)
@@ -117,7 +154,8 @@ export default function Dashboard() {
         multiplier: m,
       }
     })
-  }, [localBase, employeeCount])
+  }, [localBase, employeeCodes])
+
 
   // Non-sandbox totals fallback (cloud-driven)
   const cloudTotals = useMemo(() => {
@@ -129,15 +167,39 @@ export default function Dashboard() {
   }, [stats])
 
   const assistantProfiles = useMemo(() => {
-    return getAssistantProfiles()
-  }, [])
+    try {
+      if (!businessCode) return getAssistantProfiles()
+
+      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_assistant_profiles_json`) ?? ''
+      if (!raw) return getAssistantProfiles()
+
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return getAssistantProfiles()
+
+      const profiles = parsed
+        .map((item) => item as Record<string, unknown>)
+        .filter((v) => typeof v === 'object' && v !== null)
+        .map((v) => {
+          const codeRaw = v.code
+          const firstRaw = v.firstName
+          const lastRaw = v.lastName
+          if (typeof codeRaw !== 'string' || typeof firstRaw !== 'string' || typeof lastRaw !== 'string') return null
+          return { code: codeRaw.trim().toUpperCase(), firstName: firstRaw.trim(), lastName: lastRaw.trim() }
+        })
+        .filter((p): p is { code: string; firstName: string; lastName: string } => p !== null)
+
+      return profiles.length ? profiles : getAssistantProfiles()
+    } catch {
+      return getAssistantProfiles()
+    }
+  }, [businessCode])
 
   const assistantRows = useMemo(() => {
     if (!useTemplate) return null
-    const assistantCount = getDefaultAssistantCount()
-    const assistantCodes = getAssistantCodes(assistantCount)
+    const assistantCount = assistantCodes.length
+    const assistantCodesList = assistantCodes
 
-    const totalsByAssistant = assistantCodes.map((assistantCode) => ({
+    const totalsByAssistant = assistantCodesList.map((assistantCode) => ({
       assistantCode,
       totalHours: 0,
       normalHours: 0,
@@ -169,11 +231,11 @@ export default function Dashboard() {
       sundayHours: round2(r.sundayHours),
       publicHolidayHours: round2(r.publicHolidayHours),
     }))
-  }, [employeeRows, localPreview])
+  }, [employeeRows, localPreview, assistantCodes])
 
   const displayedStats = useMemo(() => {
     if (useTemplate) {
-      const sumMultiplier = Array.from({ length: employeeCount }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
+      const sumMultiplier = Array.from({ length: employeeCodes.length }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
         (a, b) => a + b,
         0
       )
@@ -184,7 +246,7 @@ export default function Dashboard() {
       }
     }
     return cloudTotals
-  }, [useTemplate, localBase, cloudTotals, employeeRows, employeeCount])
+  }, [useTemplate, localBase, cloudTotals, employeeRows, employeeCodes])
 
   const refresh = async () => {
     setError(null)
@@ -255,7 +317,7 @@ export default function Dashboard() {
             onClick={() => {
               localStorage.removeItem('ddworkrecord_admin_token')
               localStorage.removeItem('ddworkrecord_business_code')
-              window.location.hash = '#login'
+              window.location.hash = '#home'
             }}
             style={{
               padding: '8px 12px',
