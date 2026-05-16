@@ -4,12 +4,26 @@ import Foundation
 @available(macOS 10.15, iOS 13.0, *)
 public struct LoginScreen: View {
     public typealias OnSignedIn = () -> Void
-
     private let onSignedIn: OnSignedIn
 
-    @State private var apiKey: String = ""
-    @State private var email: String = ""
-    @State private var password: String = ""
+    private enum LS {
+        static let idToken = "ddworkrecord_id_token"
+        static let businessCode = "ddworkrecord_business_code"
+        static let employeeId = "ddworkrecord_employee_id"
+        static let vehicleId = "ddworkrecord_vehicle_id"
+        static let assistant1Id = "ddworkrecord_assistant_1_id"
+        static let assistant2Id = "ddworkrecord_assistant_2_id"
+        static let assistant3Id = "ddworkrecord_assistant_3_id"
+    }
+
+    @State private var businessCode: String = UserDefaults.standard.string(forKey: LS.businessCode) ?? ""
+    @State private var employeeId: String = UserDefaults.standard.string(forKey: LS.employeeId) ?? ""
+    @State private var workerSecret: String = UserDefaults.standard.string(forKey: LS.idToken) ?? ""
+
+    @State private var vehicleId: String = UserDefaults.standard.string(forKey: LS.vehicleId) ?? ""
+    @State private var assistant1Id: String = UserDefaults.standard.string(forKey: LS.assistant1Id) ?? ""
+    @State private var assistant2Id: String = UserDefaults.standard.string(forKey: LS.assistant2Id) ?? ""
+    @State private var assistant3Id: String = UserDefaults.standard.string(forKey: LS.assistant3Id) ?? ""
 
     @State private var errorMessage: String?
     @State private var isSigningIn: Bool = false
@@ -24,34 +38,56 @@ public struct LoginScreen: View {
                 .font(.system(size: 28, weight: .bold))
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Firebase Web API Key")
+                Text("Business access code")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                TextField("apiKey", text: $apiKey)
+                    .foregroundColor(.secondary)
+
+                TextField("ACCESS CODE (tenant code)", text: $businessCode)
                     .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Email")
+                Text("Employee ID")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                TextField("you@company.com", text: $email)
+                    .foregroundColor(.secondary)
+
+                TextField("EMP-001", text: $employeeId)
                     .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Password")
+                Text("Worker secret")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
+                    .foregroundColor(.secondary)
+
+                SecureField("Worker secret", text: $workerSecret)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Vehicle ID (optional)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                TextField("VEH-01", text: $vehicleId)
+                    .autocorrectionDisabled()
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Assistant IDs (optional)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                TextField("Assistant 1 (AS-01)", text: $assistant1Id)
+                    .autocorrectionDisabled()
+                TextField("Assistant 2 (AS-02)", text: $assistant2Id)
+                    .autocorrectionDisabled()
+                TextField("Assistant 3 (AS-03)", text: $assistant3Id)
+                    .autocorrectionDisabled()
             }
 
             if let errorMessage {
                 Text(errorMessage)
-                    .foregroundStyle(.red)
+                    .foregroundColor(.red)
                     .font(.footnote)
                     .multilineTextAlignment(.leading)
             }
@@ -62,38 +98,46 @@ public struct LoginScreen: View {
                     isSigningIn = true
                     defer { isSigningIn = false }
 
-                    do {
-                        let rest = FirebaseAuthRest()
-                        let resp = try await rest.signInWithEmailPassword(
-                            apiKey: apiKey,
-                            email: email,
-                            password: password
-                        )
+                    let b = businessCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let e = employeeId.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let s = workerSecret.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                        UserDefaults.standard.set(resp.idToken, forKey: "ddworkrecord_id_token")
-
-                        // SyncCoordinator reads id token from UserDefaults in this app.
-                        SyncCoordinator.bearerTokenProvider = {
-                            UserDefaults.standard.string(forKey: "ddworkrecord_id_token")
-                        }
-
-                        onSignedIn()
-                    } catch {
-                        let msg = error.localizedDescription
-                        errorMessage = msg.isEmpty ? "Sign-in failed." : msg
+                    if b.isEmpty {
+                        errorMessage = "Business access code is required."
+                        return
                     }
+                    if e.isEmpty {
+                        errorMessage = "Employee ID is required."
+                        return
+                    }
+                    if s.isEmpty {
+                        errorMessage = "Worker secret is required."
+                        return
+                    }
+
+                    // MVP wiring:
+                    // - store workerSecret as bearer token in ddworkrecord_id_token
+                    // - keep employeeId/vehicleId/assistant ids for UI + tagging
+                    UserDefaults.standard.set(b, forKey: LS.businessCode)
+                    UserDefaults.standard.set(s, forKey: LS.idToken)
+                    UserDefaults.standard.set(e, forKey: LS.employeeId)
+
+                    UserDefaults.standard.set(vehicleId, forKey: LS.vehicleId)
+                    UserDefaults.standard.set(assistant1Id, forKey: LS.assistant1Id)
+                    UserDefaults.standard.set(assistant2Id, forKey: LS.assistant2Id)
+                    UserDefaults.standard.set(assistant3Id, forKey: LS.assistant3Id)
+
+                    onSignedIn()
                 }
             } label: {
                 Text(isSigningIn ? "Signing in..." : "Sign in")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
             .disabled(isSigningIn)
             .padding(.top, 8)
 
             Spacer()
         }
         .padding(24)
-        .navigationTitle("Authentication")
     }
 }

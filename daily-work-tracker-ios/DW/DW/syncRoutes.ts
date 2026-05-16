@@ -49,6 +49,13 @@ router.post('/sync', authenticateRole(['admin', 'manager', 'worker']), async (re
             return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' });
         }
 
+        // Security: if the auth context includes an employeeCode (worker secret / firebase custom claims),
+        // enforce that the incoming record.employeeId matches the authenticated employee.
+        const authEmployeeCode = (req as any).authEmployeeCode as string | null;
+        if (authEmployeeCode && authEmployeeCode !== validatedData.employeeId) {
+            return res.status(403).json({ error: 'Forbidden: employeeId does not match authenticated worker.' });
+        }
+
         const recordForReports: WorkdayRecordForReports = {
             tenantId,
             id: validatedData.id,

@@ -30,7 +30,7 @@ struct ContentView: View {
 }
 
 struct StartDayScreen: View {
-    @State private var employeeId: String = "EMPLOYEE_1"
+    @State private var employeeId: String = UserDefaults.standard.string(forKey: "ddworkrecord_employee_id") ?? "EMPLOYEE_1"
 
     private func configureAuthTokenProvider() {
         // Placeholder until FirebaseAuth Swift SDK is added.
@@ -41,12 +41,12 @@ struct StartDayScreen: View {
         }
     }
 
-    @State private var assistant1Id: String = ""
-    @State private var assistant2Id: String = ""
-    @State private var assistant3Id: String = ""
+    @State private var assistant1Id: String = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_1_id") ?? ""
+    @State private var assistant2Id: String = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_2_id") ?? ""
+    @State private var assistant3Id: String = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_3_id") ?? ""
     @State private var activeAssistantSlot: Int = 0 // 0 = Crew/Employee, 1-3 = assistants
 
-    @State private var vehicleId: String = ""
+    @State private var vehicleId: String = UserDefaults.standard.string(forKey: "ddworkrecord_vehicle_id") ?? ""
     @State private var startMileage: String = ""
 
     var body: some View {
@@ -98,6 +98,10 @@ struct StartDayScreen: View {
             .onTapGesture {
                 // Used by DWApp.swift when the app returns to foreground to know which employee to sync.
                 UserDefaults.standard.set(employeeId, forKey: "ddworkrecord_employee_id")
+                UserDefaults.standard.set(vehicleId, forKey: "ddworkrecord_vehicle_id")
+                UserDefaults.standard.set(assistant1Id, forKey: "ddworkrecord_assistant_1_id")
+                UserDefaults.standard.set(assistant2Id, forKey: "ddworkrecord_assistant_2_id")
+                UserDefaults.standard.set(assistant3Id, forKey: "ddworkrecord_assistant_3_id")
             }
             .buttonStyle(.borderedProminent)
             .padding(.horizontal)
