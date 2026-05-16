@@ -195,7 +195,7 @@ export default function Dashboard() {
   }, [businessCode])
 
   const assistantRows = useMemo(() => {
-    if (!assistantCodes.length) return null
+    if (!assistantCodes.length) return []
     const assistantCount = assistantCodes.length
     const assistantCodesList = assistantCodes
 
@@ -447,7 +447,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {assistantRows ? (
+              {assistantRows.length ? (
                 assistantRows.map((row) => (
                   <tr key={row.assistantCode}>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
