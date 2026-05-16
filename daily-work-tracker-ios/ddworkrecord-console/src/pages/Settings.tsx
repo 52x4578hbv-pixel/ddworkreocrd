@@ -109,7 +109,7 @@ function safeReadEmployeeProfiles(): EmployeeProfile[] {
 
 function safeReadAssistantProfiles(): AssistantProfile[] {
   try {
-    const raw = localStorage.getItem(LS_ASSISTANT_PROFILES_KEY)
+    const raw = localStorage.getItem(scopedKey(LS_ASSISTANT_PROFILES_KEY))
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
@@ -147,7 +147,7 @@ function safeReadAssistantProfiles(): AssistantProfile[] {
 
 function safeReadVehicleProfiles(): VehicleProfile[] {
   try {
-    const raw = localStorage.getItem(LS_VEHICLE_PROFILES_KEY)
+    const raw = localStorage.getItem(scopedKey(LS_VEHICLE_PROFILES_KEY))
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
@@ -237,8 +237,8 @@ export default function Settings() {
     const nextProfiles = [...employeeProfiles, nextProfile]
     setEmployeeProfiles(nextProfiles)
 
-    safeWrite(LS_EMPLOYEE_PROFILES_KEY, JSON.stringify(nextProfiles))
-    safeWrite(LS_EMPLOYEE_CODES, nextProfiles.map((p) => p.code).join(','))
+    safeWrite(scopedKey(LS_EMPLOYEE_PROFILES_KEY), JSON.stringify(nextProfiles))
+    safeWrite(scopedKey(LS_EMPLOYEE_CODES), nextProfiles.map((p) => p.code).join(','))
 
     setEmployeeFirstName('')
     setEmployeeLastName('')
@@ -257,8 +257,8 @@ export default function Settings() {
     const nextProfiles = [...assistantProfiles, nextProfile]
     setAssistantProfiles(nextProfiles)
 
-    safeWrite(LS_ASSISTANT_PROFILES_KEY, JSON.stringify(nextProfiles))
-    safeWrite(LS_ASSISTANT_CODES, nextProfiles.map((p) => p.code).join(','))
+    safeWrite(scopedKey(LS_ASSISTANT_PROFILES_KEY), JSON.stringify(nextProfiles))
+    safeWrite(scopedKey(LS_ASSISTANT_CODES), nextProfiles.map((p) => p.code).join(','))
 
     setAssistantFirstName('')
     setAssistantLastName('')
@@ -279,8 +279,8 @@ export default function Settings() {
     const nextProfiles = [...vehicleProfiles, nextProfile]
     setVehicleProfiles(nextProfiles)
 
-    safeWrite(LS_VEHICLE_PROFILES_KEY, JSON.stringify(nextProfiles))
-    safeWrite(LS_VEHICLE_CODES, nextProfiles.map((p) => p.code).join(','))
+    safeWrite(scopedKey(LS_VEHICLE_PROFILES_KEY), JSON.stringify(nextProfiles))
+    safeWrite(scopedKey(LS_VEHICLE_CODES), nextProfiles.map((p) => p.code).join(','))
 
     setVehicleCarType('')
     setVehicleRegistration('')
@@ -292,14 +292,14 @@ export default function Settings() {
     safeWrite(LS_BUSINESS_COUNTRY, businessCountry)
     safeWrite(LS_BUSINESS_ADDRESS, businessAddress)
 
-    safeWrite(LS_EMPLOYEE_PROFILES_KEY, JSON.stringify(employeeProfiles))
-    safeWrite(LS_EMPLOYEE_CODES, employeeCodesCsv)
+    safeWrite(scopedKey(LS_EMPLOYEE_PROFILES_KEY), JSON.stringify(employeeProfiles))
+    safeWrite(scopedKey(LS_EMPLOYEE_CODES), employeeCodesCsv)
 
-    safeWrite(LS_ASSISTANT_PROFILES_KEY, JSON.stringify(assistantProfiles))
-    safeWrite(LS_ASSISTANT_CODES, assistantCodesCsv)
+    safeWrite(scopedKey(LS_ASSISTANT_PROFILES_KEY), JSON.stringify(assistantProfiles))
+    safeWrite(scopedKey(LS_ASSISTANT_CODES), assistantCodesCsv)
 
-    safeWrite(LS_VEHICLE_PROFILES_KEY, JSON.stringify(vehicleProfiles))
-    safeWrite(LS_VEHICLE_CODES, vehicleCodesCsv)
+    safeWrite(scopedKey(LS_VEHICLE_PROFILES_KEY), JSON.stringify(vehicleProfiles))
+    safeWrite(scopedKey(LS_VEHICLE_CODES), vehicleCodesCsv)
 
     setSavedAt(Date.now())
   }
