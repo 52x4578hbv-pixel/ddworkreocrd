@@ -9,7 +9,11 @@ import SwiftUI
 import DailyWorkTracker
 
 struct ContentView: View {
-    @State private var isSignedIn: Bool = (UserDefaults.standard.string(forKey: "ddworkrecord_id_token")?.isEmpty == false)
+    @State private var isSignedIn: Bool = {
+        let token = UserDefaults.standard.string(forKey: "ddworkrecord_id_token") ?? ""
+        let businessCode = UserDefaults.standard.string(forKey: "ddworkrecord_business_code") ?? ""
+        return !token.isEmpty && !businessCode.isEmpty
+    }()
 
     var body: some View {
         NavigationView {
