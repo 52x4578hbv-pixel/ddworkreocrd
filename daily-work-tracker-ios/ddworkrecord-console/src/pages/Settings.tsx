@@ -203,12 +203,15 @@ export default function Settings() {
 
   const [employeeFirstName, setEmployeeFirstName] = useState<string>('')
   const [employeeLastName, setEmployeeLastName] = useState<string>('')
+  const [editingEmployeeIndex, setEditingEmployeeIndex] = useState<number | null>(null)
 
   const [assistantProfiles, setAssistantProfiles] = useState<AssistantProfile[]>(() => safeReadAssistantProfiles())
   const assistantCodesCsv = useMemo(() => assistantProfiles.map((p) => p.code).join(','), [assistantProfiles])
 
   const [assistantFirstName, setAssistantFirstName] = useState<string>('')
   const [assistantLastName, setAssistantLastName] = useState<string>('')
+
+  const [editingAssistantIndex, setEditingAssistantIndex] = useState<number | null>(null)
 
   const [vehicleProfiles, setVehicleProfiles] = useState<VehicleProfile[]>(() => safeReadVehicleProfiles())
   const vehicleCodesCsv = useMemo(() => vehicleProfiles.map((p) => p.code).join(','), [vehicleProfiles])
@@ -225,23 +228,65 @@ export default function Settings() {
     }
   }, [employeeProfiles.length, assistantProfiles.length, vehicleProfiles.length])
 
+  const persistEmployeeProfiles = (nextProfiles: EmployeeProfile[]) => {
+    safeWrite(scopedKey(LS_EMPLOYEE_PROFILES_KEY), JSON.stringify(nextProfiles))
+    safeWrite(scopedKey(LS_EMPLOYEE_CODES), nextProfiles.map((p) => p.code).join(','))
+  }
+
+  const persistAssistantProfiles = (nextProfiles: AssistantProfile[]) => {
+    safeWrite(scopedKey(LS_ASSISTANT_PROFILES_KEY), JSON.stringify(nextProfiles))
+    safeWrite(scopedKey(LS_ASSISTANT_CODES), nextProfiles.map((p) => p.code).join(','))
+  }
+
   const addEmployee = () => {
     const fn = employeeFirstName.trim()
     const ln = employeeLastName.trim()
     if (!fn || !ln) return
 
+    // Edit existing profile
+    if (editingEmployeeIndex !== null) {
+      const nextProfiles = employeeProfiles.map((p, idx) => {
+        if (idx !== editingEmployeeIndex) return p
+        return { ...p, firstName: fn, lastName: ln }
+      })
+      setEmployeeProfiles(nextProfiles)
+      persistEmployeeProfiles(nextProfiles)
+
+      setEmployeeFirstName('')
+      setEmployeeLastName('')
+      setEditingEmployeeIndex(null)
+      setSavedAt(Date.now())
+      return
+    }
+
+    // Add new profile
     const nextIndex = employeeProfiles.length + 1
     const code = employeeCode(nextIndex)
 
     const nextProfile: EmployeeProfile = { code, firstName: fn, lastName: ln }
     const nextProfiles = [...employeeProfiles, nextProfile]
     setEmployeeProfiles(nextProfiles)
-
-    safeWrite(scopedKey(LS_EMPLOYEE_PROFILES_KEY), JSON.stringify(nextProfiles))
-    safeWrite(scopedKey(LS_EMPLOYEE_CODES), nextProfiles.map((p) => p.code).join(','))
+    persistEmployeeProfiles(nextProfiles)
 
     setEmployeeFirstName('')
     setEmployeeLastName('')
+    setSavedAt(Date.now())
+  }
+
+  const deleteEmployee = (index: number) => {
+    const nextProfiles = employeeProfiles.filter((_, idx) => idx !== index)
+    setEmployeeProfiles(nextProfiles)
+    persistEmployeeProfiles(nextProfiles)
+
+    // If we were editing this row, reset fields.
+    if (editingEmployeeIndex === index) {
+      setEmployeeFirstName('')
+      setEmployeeLastName('')
+      setEditingEmployeeIndex(null)
+    } else if (editingEmployeeIndex !== null && index < editingEmployeeIndex) {
+      setEditingEmployeeIndex(editingEmployeeIndex - 1)
+    }
+
     setSavedAt(Date.now())
   }
 
@@ -250,18 +295,47 @@ export default function Settings() {
     const ln = assistantLastName.trim()
     if (!fn || !ln) return
 
+    if (editingAssistantIndex !== null) {
+      const nextProfiles = assistantProfiles.map((p, idx) => {
+        if (idx !== editingAssistantIndex) return p
+        return { ...p, firstName: fn, lastName: ln }
+      })
+      setAssistantProfiles(nextProfiles)
+      persistAssistantProfiles(nextProfiles)
+
+      setAssistantFirstName('')
+      setAssistantLastName('')
+      setEditingAssistantIndex(null)
+      setSavedAt(Date.now())
+      return
+    }
+
     const nextIndex = assistantProfiles.length + 1
     const code = assistantCode(nextIndex)
 
     const nextProfile: AssistantProfile = { code, firstName: fn, lastName: ln }
     const nextProfiles = [...assistantProfiles, nextProfile]
     setAssistantProfiles(nextProfiles)
-
-    safeWrite(scopedKey(LS_ASSISTANT_PROFILES_KEY), JSON.stringify(nextProfiles))
-    safeWrite(scopedKey(LS_ASSISTANT_CODES), nextProfiles.map((p) => p.code).join(','))
+    persistAssistantProfiles(nextProfiles)
 
     setAssistantFirstName('')
     setAssistantLastName('')
+    setSavedAt(Date.now())
+  }
+
+  const deleteAssistant = (index: number) => {
+    const nextProfiles = assistantProfiles.filter((_, idx) => idx !== index)
+    setAssistantProfiles(nextProfiles)
+    persistAssistantProfiles(nextProfiles)
+
+    if (editingAssistantIndex === index) {
+      setAssistantFirstName('')
+      setAssistantLastName('')
+      setEditingAssistantIndex(null)
+    } else if (editingAssistantIndex !== null && index < editingAssistantIndex) {
+      setEditingAssistantIndex(editingAssistantIndex - 1)
+    }
+
     setSavedAt(Date.now())
   }
 
@@ -453,7 +527,9 @@ export default function Settings() {
                         height: 42,
                       }}
                     >
-                      Add Employee ({employeeProfiles.length + 1 ? `EMP-${pad3(employeeProfiles.length + 1)}` : 'EMP'})
+                      {editingEmployeeIndex !== null
+                        ? 'Update Employee'
+                        : `Add Employee (${employeeProfiles.length + 1 ? `EMP-${pad3(employeeProfiles.length + 1)}` : 'EMP'})`}
                     </button>
                   </div>
 
@@ -475,6 +551,60 @@ export default function Settings() {
                         color: theme.text,
                       }}
                     />
+
+                    {employeeProfiles.length ? (
+                      <div style={{ marginTop: 12, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, overflow: 'hidden', background: theme.surface }}>
+                        <div style={{ padding: 10, fontWeight: 1100, color: theme.text, borderBottom: `2px solid ${theme.borderSoft}` }}>
+                          Created employee codes
+                        </div>
+                        <div style={{ padding: 10, display: 'grid', gap: 10 }}>
+                          {employeeProfiles.map((p, idx) => (
+                            <div key={p.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                              <div style={{ fontWeight: 1000, color: theme.text }}>
+                                {p.code} — {p.firstName} {p.lastName}
+                              </div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEmployeeFirstName(p.firstName)
+                                    setEmployeeLastName(p.lastName)
+                                    setEditingEmployeeIndex(idx)
+                                  }}
+                                  style={{
+                                    padding: '8px 12px',
+                                    border: `2px solid ${theme.text}`,
+                                    background: theme.surface,
+                                    cursor: 'pointer',
+                                    fontWeight: 1000,
+                                    borderRadius: theme.radiusSm,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteEmployee(idx)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    border: `2px solid ${theme.error}`,
+                                    background: theme.surface,
+                                    cursor: 'pointer',
+                                    fontWeight: 1000,
+                                    color: theme.error,
+                                    borderRadius: theme.radiusSm,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12 }}>
@@ -544,7 +674,9 @@ export default function Settings() {
                         height: 42,
                       }}
                     >
-                      Add Assistant ({assistantProfiles.length + 1 ? `AS-${pad3(assistantProfiles.length + 1)}` : 'AS'})
+                      {editingAssistantIndex !== null
+                        ? 'Update Assistant'
+                        : `Add Assistant (${assistantProfiles.length + 1 ? `AS-${pad3(assistantProfiles.length + 1)}` : 'AS'})`}
                     </button>
                   </div>
 
@@ -566,6 +698,60 @@ export default function Settings() {
                         color: theme.text,
                       }}
                     />
+
+                    {assistantProfiles.length ? (
+                      <div style={{ marginTop: 12, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, overflow: 'hidden', background: theme.surface }}>
+                        <div style={{ padding: 10, fontWeight: 1100, color: theme.text, borderBottom: `2px solid ${theme.borderSoft}` }}>
+                          Created assistant codes
+                        </div>
+                        <div style={{ padding: 10, display: 'grid', gap: 10 }}>
+                          {assistantProfiles.map((p, idx) => (
+                            <div key={p.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                              <div style={{ fontWeight: 1000, color: theme.text }}>
+                                {p.code} — {p.firstName} {p.lastName}
+                              </div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAssistantFirstName(p.firstName)
+                                    setAssistantLastName(p.lastName)
+                                    setEditingAssistantIndex(idx)
+                                  }}
+                                  style={{
+                                    padding: '8px 12px',
+                                    border: `2px solid ${theme.text}`,
+                                    background: theme.surface,
+                                    cursor: 'pointer',
+                                    fontWeight: 1000,
+                                    borderRadius: theme.radiusSm,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteAssistant(idx)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    border: `2px solid ${theme.error}`,
+                                    background: theme.surface,
+                                    cursor: 'pointer',
+                                    fontWeight: 1000,
+                                    color: theme.error,
+                                    borderRadius: theme.radiusSm,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12 }}>
