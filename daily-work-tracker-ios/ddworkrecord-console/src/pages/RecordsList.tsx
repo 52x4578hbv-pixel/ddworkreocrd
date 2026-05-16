@@ -63,12 +63,12 @@ export default function RecordsList() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
+          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 'min(240px, 100%)' }}>
             <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total records</div>
             <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>{filteredWorkdays.length}</div>
           </div>
 
-          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 260 }}>
+          <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 'min(260px, 100%)' }}>
             <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Filter by employee</div>
             <div style={{ marginTop: 8 }}>
               <select
@@ -98,7 +98,7 @@ export default function RecordsList() {
         </div>
       </div>
 
-      <div style={{ marginTop: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+      <div style={{ marginTop: 16, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
         {filteredWorkdays.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', padding: 14, border: `2px dashed ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
             <div style={{ fontWeight: 1000 }}>No records found</div>

@@ -65,7 +65,7 @@ export default function FuelStopsList() {
           </p>
         </div>
 
-        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 240 }}>
+        <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 'min(240px, 100%)' }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total fuel stops</div>
           <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 24 }}>
             {rows.reduce((acc, w) => acc + w.fuelStops.length, 0)}
@@ -193,7 +193,7 @@ export default function FuelStopsList() {
               </div>
             </div>
 
-            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 12 }}>
+            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
               {w.fuelStops.map((s, idx) => (
                 <FuelStopCard key={`${w.id}-f-${idx}`} stop={s} index={idx + 1} />
               ))}
