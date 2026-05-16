@@ -8,7 +8,6 @@ public struct LoginScreen: View {
 
     private enum LS {
         static let idToken = "ddworkrecord_id_token"
-        static let businessCode = "ddworkrecord_business_code"
         static let employeeId = "ddworkrecord_employee_id"
         static let vehicleId = "ddworkrecord_vehicle_id"
         static let assistant1Id = "ddworkrecord_assistant_1_id"
@@ -16,7 +15,6 @@ public struct LoginScreen: View {
         static let assistant3Id = "ddworkrecord_assistant_3_id"
     }
 
-    @State private var businessCode: String = UserDefaults.standard.string(forKey: LS.businessCode) ?? ""
     @State private var employeeId: String = UserDefaults.standard.string(forKey: LS.employeeId) ?? ""
     @State private var workerSecret: String = UserDefaults.standard.string(forKey: LS.idToken) ?? ""
 
@@ -38,15 +36,6 @@ public struct LoginScreen: View {
                 .font(.system(size: 28, weight: .bold))
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Business access code")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                TextField("ACCESS CODE (tenant code)", text: $businessCode)
-                    .autocorrectionDisabled()
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
                 Text("Employee ID")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -64,7 +53,7 @@ public struct LoginScreen: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Vehicle ID (optional)")
+                Text("Vehicle ID")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
@@ -73,7 +62,7 @@ public struct LoginScreen: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Assistant IDs (optional)")
+                Text("Assistant IDs (at least one required)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
@@ -98,14 +87,14 @@ public struct LoginScreen: View {
                     isSigningIn = true
                     defer { isSigningIn = false }
 
-                    let b = businessCode.trimmingCharacters(in: .whitespacesAndNewlines)
                     let e = employeeId.trimmingCharacters(in: .whitespacesAndNewlines)
                     let s = workerSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let v = vehicleId.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    if b.isEmpty {
-                        errorMessage = "Business access code is required."
-                        return
-                    }
+                    let a1 = assistant1Id.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let a2 = assistant2Id.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let a3 = assistant3Id.trimmingCharacters(in: .whitespacesAndNewlines)
+
                     if e.isEmpty {
                         errorMessage = "Employee ID is required."
                         return
@@ -114,18 +103,25 @@ public struct LoginScreen: View {
                         errorMessage = "Worker secret is required."
                         return
                     }
+                    if v.isEmpty {
+                        errorMessage = "Vehicle ID is required."
+                        return
+                    }
+                    if a1.isEmpty && a2.isEmpty && a3.isEmpty {
+                        errorMessage = "At least one assistant ID is required."
+                        return
+                    }
 
-                    // MVP wiring:
-                    // - store workerSecret as bearer token in ddworkrecord_id_token
-                    // - keep employeeId/vehicleId/assistant ids for UI + tagging
-                    UserDefaults.standard.set(b, forKey: LS.businessCode)
+                    // Store ONLY what iOS needs:
+                    // - workerSecret => Bearer token for API auth
+                    // - employeeId/vehicleId/assistant IDs => UI + tagging + sync context
                     UserDefaults.standard.set(s, forKey: LS.idToken)
                     UserDefaults.standard.set(e, forKey: LS.employeeId)
+                    UserDefaults.standard.set(v, forKey: LS.vehicleId)
 
-                    UserDefaults.standard.set(vehicleId, forKey: LS.vehicleId)
-                    UserDefaults.standard.set(assistant1Id, forKey: LS.assistant1Id)
-                    UserDefaults.standard.set(assistant2Id, forKey: LS.assistant2Id)
-                    UserDefaults.standard.set(assistant3Id, forKey: LS.assistant3Id)
+                    UserDefaults.standard.set(a1, forKey: LS.assistant1Id)
+                    UserDefaults.standard.set(a2, forKey: LS.assistant2Id)
+                    UserDefaults.standard.set(a3, forKey: LS.assistant3Id)
 
                     onSignedIn()
                 }

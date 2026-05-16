@@ -11,8 +11,13 @@ import DailyWorkTracker
 struct ContentView: View {
     @State private var isSignedIn: Bool = {
         let token = UserDefaults.standard.string(forKey: "ddworkrecord_id_token") ?? ""
-        let businessCode = UserDefaults.standard.string(forKey: "ddworkrecord_business_code") ?? ""
-        return !token.isEmpty && !businessCode.isEmpty
+        let employeeId = UserDefaults.standard.string(forKey: "ddworkrecord_employee_id") ?? ""
+        let vehicleId = UserDefaults.standard.string(forKey: "ddworkrecord_vehicle_id") ?? ""
+        let assistant1Id = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_1_id") ?? ""
+        let assistant2Id = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_2_id") ?? ""
+        let assistant3Id = UserDefaults.standard.string(forKey: "ddworkrecord_assistant_3_id") ?? ""
+        let hasAssistant = !assistant1Id.isEmpty || !assistant2Id.isEmpty || !assistant3Id.isEmpty
+        return !token.isEmpty && !employeeId.isEmpty && !vehicleId.isEmpty && hasAssistant
     }()
 
     var body: some View {
