@@ -41,6 +41,12 @@ function safeWrite(key: string, value: string) {
   }
 }
 
+function scopedKey(baseKey: string): string {
+  const code = safeRead(LS_BUSINESS_CODE).trim()
+  if (!code) return baseKey
+  return `ddworkrecord_business_${code}_${baseKey}`
+}
+
 function normalizeCountry(raw: string): Country {
   const s = raw.trim().toUpperCase()
   if (s === 'US') return 'US'
@@ -65,7 +71,7 @@ function vehicleCode(i: number): string {
 
 function safeReadEmployeeProfiles(): EmployeeProfile[] {
   try {
-    const raw = localStorage.getItem(LS_EMPLOYEE_PROFILES_KEY)
+    const raw = localStorage.getItem(scopedKey(LS_EMPLOYEE_PROFILES_KEY))
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
