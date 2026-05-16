@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { theme } from '../lib/theme'
+import { mintWorkerSecrets } from '../lib/businessApi'
 
 type Country = 'ZA' | 'US'
 
@@ -376,6 +377,32 @@ export default function Settings() {
     safeWrite(scopedKey(LS_VEHICLE_CODES), vehicleCodesCsv)
 
     setSavedAt(Date.now())
+  }
+
+  const [workerSecretsBusy, setWorkerSecretsBusy] = useState(false)
+  const [workerSecretsError, setWorkerSecretsError] = useState<string | null>(null)
+  const [workerSecrets, setWorkerSecrets] = useState<{ employeeCode: string; workerSecret: string }[] | null>(null)
+
+  const generateWorkerSecrets = async () => {
+    setWorkerSecretsError(null)
+    setWorkerSecretsBusy(true)
+    setWorkerSecrets(null)
+
+    try {
+      const codes = employeeProfiles.map((p) => p.code)
+      if (codes.length === 0) {
+        setWorkerSecretsError('Add at least one employee first.')
+        return
+      }
+
+      const res = await mintWorkerSecrets(codes)
+      setWorkerSecrets(res.secrets)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to generate worker secrets.'
+      setWorkerSecretsError(message)
+    } finally {
+      setWorkerSecretsBusy(false)
+    }
   }
 
   return (
@@ -896,6 +923,118 @@ export default function Settings() {
                 {savedAt ? (
                   <div style={{ color: theme.muted2, fontWeight: 1000 }}>
                     Saved ✓ ({new Date(savedAt).toLocaleTimeString()})
+                  </div>
+                ) : null}
+              </div>
+
+              {/** iOS worker-secret generation (console Settings only; no business portal) */}
+              <div style={{ marginTop: 22, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, padding: 14, background: theme.surface }}>
+                <div style={{ fontWeight: 1100, fontSize: 18, color: theme.text }}>iOS Worker Secrets</div>
+                <div style={{ marginTop: 6, color: theme.muted, fontWeight: 900, fontSize: 12.5 }}>
+                  Generate Bearer worker secrets for each EMP code created above. Copy/paste into the iOS Login screen.
+                </div>
+
+                {workerSecretsError ? (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      marginBottom: 10,
+                      padding: 12,
+                      background: theme.errorBg,
+                      borderLeft: `4px solid ${theme.error}`,
+                      fontWeight: 950,
+                      borderRadius: theme.radiusSm,
+                      color: theme.text,
+                    }}
+                  >
+                    {workerSecretsError}
+                  </div>
+                ) : null}
+
+                <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => void generateWorkerSecrets()}
+                    disabled={workerSecretsBusy}
+                    style={{
+                      padding: '12px 16px',
+                      border: `2px solid ${theme.text}`,
+                      background: theme.text,
+                      color: '#fff',
+                      cursor: workerSecretsBusy ? 'not-allowed' : 'pointer',
+                      fontWeight: 1100,
+                      borderRadius: theme.radiusSm,
+                      boxShadow: `3px 3px 0 ${theme.text}`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {workerSecretsBusy ? 'Generating…' : `Generate worker secrets (${employeeProfiles.length})`}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkerSecrets(null)
+                      setWorkerSecretsError(null)
+                    }}
+                    style={{
+                      padding: '12px 16px',
+                      border: `2px solid ${theme.borderSoft}`,
+                      background: theme.surface,
+                      color: theme.text,
+                      cursor: 'pointer',
+                      fontWeight: 1100,
+                      borderRadius: theme.radiusSm,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {workerSecrets ? (
+                  <div style={{ marginTop: 14, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, overflow: 'hidden', background: '#fff' }}>
+                    <div style={{ padding: 10, fontWeight: 1100, color: theme.text, background: theme.pageBg, borderBottom: `2px solid ${theme.borderSoft}` }}>
+                      Generated secrets
+                    </div>
+
+                    <div style={{ padding: 10, display: 'grid', gap: 10 }}>
+                      {workerSecrets.map((s) => (
+                        <div key={s.employeeCode} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                          <div style={{ minWidth: 240 }}>
+                            <div style={{ fontWeight: 1100, color: theme.text }}>{s.employeeCode}</div>
+                            <div style={{ marginTop: 6, fontSize: 12.5, color: theme.muted2, fontWeight: 850, wordBreak: 'break-all' }}>
+                              {s.workerSecret}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(s.workerSecret)
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                border: `2px solid ${theme.text}`,
+                                background: theme.surface,
+                                color: theme.text,
+                                cursor: 'pointer',
+                                fontWeight: 1100,
+                                borderRadius: theme.radiusSm,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Copy token
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
