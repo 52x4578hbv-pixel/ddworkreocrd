@@ -119,14 +119,14 @@ export default function Dashboard() {
   }, [businessCode])
 
   const employeeCodes = useMemo(() => {
-    if (savedEmployeeCodes.length) return savedEmployeeCodes
-    return getEmployeeCodes(getDefaultEmployeeCount())
-  }, [savedEmployeeCodes])
+    if (localPreview) return getEmployeeCodes(getDefaultEmployeeCount())
+    return savedEmployeeCodes
+  }, [localPreview, savedEmployeeCodes])
 
   const assistantCodes = useMemo(() => {
-    if (savedAssistantCodes.length) return savedAssistantCodes
-    return getAssistantCodes(getDefaultAssistantCount())
-  }, [savedAssistantCodes])
+    if (localPreview) return getAssistantCodes(getDefaultAssistantCount())
+    return savedAssistantCodes
+  }, [localPreview, savedAssistantCodes])
 
   const localBase: LocalPreviewMonthBreakdownBase = getLocalPreviewMonthBreakdownBase()
 
