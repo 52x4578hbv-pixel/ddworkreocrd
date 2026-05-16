@@ -39,6 +39,15 @@ type Draft = {
   date: string
   startTime: string
   endTime: string
+  employeeCode: string
+
+  // iOS job segment times (used for job-segment hour reporting)
+  jobStartTime?: string
+  jobEndTime?: string
+
+  // local-preview only (for “Travel started/stopped (draft)” display)
+  vehicleId: string | null
+
   mileage: number | null
   fuelCost: number | null
   supplierCost: number | null
@@ -325,6 +334,9 @@ export function ensureSeededLocalPreview(config?: Partial<LocalPreviewSeedConfig
     workdaysPerMonth: config?.workdaysPerMonth ?? 18,
   }
 
+  const vehicleCount = getDefaultVehicleCount()
+  const vehicleCodes = getVehicleCodes(vehicleCount)
+
   const existing = loadQueue()
   if (existing.length > 0) {
     const allZero = existing.every((d) => calcTotalHours(d.startTime, d.endTime) <= 0)
@@ -335,7 +347,13 @@ export function ensureSeededLocalPreview(config?: Partial<LocalPreviewSeedConfig
       (d) => !('supplierStops' in d) || !('fuelStops' in d) || !(d as unknown as { supplierStops?: unknown; fuelStops?: unknown }).supplierStops || !(d as unknown as { supplierStops?: unknown; fuelStops?: unknown }).fuelStops
     )
 
-    if (!allZero && !anyMissingStopFields) return
+    const anyMissingJobSegmentFields = existing.some((d) => {
+      const jd = (d as unknown as { jobStartTime?: unknown }).jobStartTime
+      const je = (d as unknown as { jobEndTime?: unknown }).jobEndTime
+      return typeof jd !== 'string' || typeof je !== 'string'
+    })
+
+    if (!allZero && !anyMissingStopFields && !anyMissingJobSegmentFields) return
     localStorage.removeItem(STORAGE_KEY)
   }
 
@@ -371,6 +389,24 @@ export function ensureSeededLocalPreview(config?: Partial<LocalPreviewSeedConfig
     const seedBase = hashStringToInt(`${code}:${toIsoDate(date)}:${dayIndex}`)
     const { startTime, endTime } = generateStartEndTimes(seedBase)
 
+    const startMin = toMinutes(startTime) ?? 0
+    const endMin = toMinutes(endTime) ?? (startMin + 60)
+
+    // Job segment is a sub-window inside the travel window so job-hours differ from day-hours.
+    const jobSeed = hashStringToInt(`JOB:${seedBase}:${dayIndex}`)
+    const jobStartOffsetMin = Math.round(seededNumber(jobSeed + 1, 10, 45))
+    const jobEndOffsetMin = Math.round(seededNumber(jobSeed + 2, 10, 75))
+
+    let jobStartMin = clamp(startMin + jobStartOffsetMin, 0, 23 * 60 + 55)
+    let jobEndMin = clamp(endMin - jobEndOffsetMin, jobStartMin + 15, 23 * 60 + 55)
+    if (jobEndMin <= jobStartMin) jobEndMin = Math.min(23 * 60 + 55, jobStartMin + 30)
+
+    const jobStartTime = minutesToHHMM(jobStartMin)
+    const jobEndTime = minutesToHHMM(jobEndMin)
+
+    const vehicleId =
+      vehicleCodes.length > 0 ? vehicleCodes[hashStringToInt(`VEH-${seedBase}:${dayIndex}`) % vehicleCodes.length] : null
+
     const rnd = mulberry32(seedBase + 999)()
     const mileage = computeMileageKm(rnd)
 
@@ -396,9 +432,15 @@ export function ensureSeededLocalPreview(config?: Partial<LocalPreviewSeedConfig
       date: toIsoDate(date),
       startTime,
       endTime,
+      employeeCode: code,
+      vehicleId,
       mileage,
       fuelCost,
       supplierCost,
+
+      // job-segment times (real reporting basis for Jobs tab/Reports)
+      jobStartTime,
+      jobEndTime,
 
       jobIdNumber,
       clientName,
@@ -423,6 +465,12 @@ export function ensureSeededLocalPreview(config?: Partial<LocalPreviewSeedConfig
 }
 
 export function getEmployeeCodes(employeeCount: number): string[] {
+  const profiles = safeReadEmployeeProfiles()
+  if (profiles.length > 0) {
+    // Keep order from stored profiles; if the caller asks for fewer, slice.
+    return profiles.slice(0, employeeCount).map((p) => p.code)
+  }
+
   return Array.from({ length: employeeCount }, (_, i) => employeeCode(i + 1))
 }
 
@@ -438,13 +486,167 @@ export function getEmployeeHourlyRate(employeeIndex1Based: number): number {
   return Math.round(14 + t * 18)
 }
 
+export type EmployeeProfile = { code: string; firstName: string; lastName: string }
+
+export type AssistantProfile = { code: string; firstName?: string; lastName?: string }
+
+export type VehicleProfile = {
+  code: string
+  carType: string
+  registrationNumber: string
+  nickname?: string
+}
+
+const LS_EMPLOYEE_PROFILES_KEY = 'ddworkrecord_employee_profiles_json'
+const LS_ASSISTANT_PROFILES_KEY = 'ddworkrecord_assistant_profiles_json'
+const LS_VEHICLE_PROFILES_KEY = 'ddworkrecord_vehicle_profiles_json'
+
+// legacy/local-only CSV storage (used by older UI)
+const LS_ASSISTANT_CODES = 'ddworkrecord_assistant_codes_csv'
+const LS_VEHICLE_CODES = 'ddworkrecord_vehicle_codes_csv'
+
+function safeReadEmployeeProfiles(): EmployeeProfile[] {
+  try {
+    const raw = localStorage.getItem(LS_EMPLOYEE_PROFILES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+
+    const profiles: EmployeeProfile[] = []
+    for (const item of parsed) {
+      if (typeof item !== 'object' || item === null) continue
+      const v = item as Record<string, unknown>
+      const codeRaw = v.code
+      const firstNameRaw = v.firstName
+      const lastNameRaw = v.lastName
+      if (typeof codeRaw !== 'string' || typeof firstNameRaw !== 'string' || typeof lastNameRaw !== 'string') continue
+
+      const code = codeRaw.trim().toUpperCase()
+      const firstName = firstNameRaw.trim()
+      const lastName = lastNameRaw.trim()
+      if (!code || !firstName || !lastName) continue
+
+      profiles.push({ code, firstName, lastName })
+    }
+    return profiles
+  } catch {
+    return []
+  }
+}
+
+export function getEmployeeProfiles(): EmployeeProfile[] {
+  return safeReadEmployeeProfiles()
+}
+
 export function getDefaultEmployeeCount(): number {
-  return 20
+  const profiles = safeReadEmployeeProfiles()
+  return profiles.length > 0 ? profiles.length : 20
+}
+
+function safeReadAssistantProfiles(): AssistantProfile[] {
+  try {
+    const raw = localStorage.getItem(LS_ASSISTANT_PROFILES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed)) {
+        const profiles: AssistantProfile[] = []
+        for (const item of parsed) {
+          if (typeof item !== 'object' || item === null) continue
+          const v = item as Record<string, unknown>
+          const codeRaw = v.code
+          if (typeof codeRaw !== 'string') continue
+          const code = codeRaw.trim().toUpperCase()
+          if (!code) continue
+          const firstName = typeof v.firstName === 'string' ? v.firstName.trim() : undefined
+          const lastName = typeof v.lastName === 'string' ? v.lastName.trim() : undefined
+          profiles.push({ code, firstName: firstName || undefined, lastName: lastName || undefined })
+        }
+        // stable order by numeric suffix (AS-001 < AS-010)
+        profiles.sort((a, b) => {
+          const ai = Number((a.code.match(/^AS-(\d{3})$/) ?? [])[1] ?? 0)
+          const bi = Number((b.code.match(/^AS-(\d{3})$/) ?? [])[1] ?? 0)
+          return ai - bi
+        })
+        if (profiles.length > 0) return profiles
+      }
+    }
+  } catch {
+    // fallthrough
+  }
+
+  // Back-compat: if only AS code CSV exists, use it for count.
+  try {
+    const rawCsv = localStorage.getItem(LS_ASSISTANT_CODES)
+    if (!rawCsv) return []
+    const codes = rawCsv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((c) => c.toUpperCase())
+    return codes.map((code) => ({ code }))
+  } catch {
+    return []
+  }
+}
+
+function safeReadVehicleProfiles(): VehicleProfile[] {
+  try {
+    const raw = localStorage.getItem(LS_VEHICLE_PROFILES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed)) {
+        const profiles: VehicleProfile[] = []
+        for (const item of parsed) {
+          if (typeof item !== 'object' || item === null) continue
+          const v = item as Record<string, unknown>
+          const codeRaw = v.code
+          const carTypeRaw = v.carType
+          const regRaw = v.registrationNumber
+          if (typeof codeRaw !== 'string' || typeof carTypeRaw !== 'string' || typeof regRaw !== 'string') continue
+          const code = codeRaw.trim().toUpperCase()
+          const carType = carTypeRaw.trim()
+          const registrationNumber = regRaw.trim()
+          if (!code || !carType || !registrationNumber) continue
+          const nickname = typeof v.nickname === 'string' ? v.nickname.trim() : undefined
+          profiles.push({ code, carType, registrationNumber, nickname: nickname || undefined })
+        }
+        profiles.sort((a, b) => {
+          const ai = Number((a.code.match(/^VEH-(\d{3})$/) ?? [])[1] ?? 0)
+          const bi = Number((b.code.match(/^VEH-(\d{3})$/) ?? [])[1] ?? 0)
+          return ai - bi
+        })
+        if (profiles.length > 0) return profiles
+      }
+    }
+  } catch {
+    // fallthrough
+  }
+
+  // Back-compat: if only VEH code CSV exists, use it for count.
+  try {
+    const rawCsv = localStorage.getItem(LS_VEHICLE_CODES)
+    if (!rawCsv) return []
+    const codes = rawCsv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((c) => c.toUpperCase())
+    // minimal profiles so vehicle IDs exist
+    return codes.map((code) => ({
+      code,
+      carType: 'Car',
+      registrationNumber: code,
+      nickname: undefined,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export function getDefaultAssistantCount(): number {
   // Display-only assistants shown on the local preview dashboard.
-  return 6
+  const profiles = safeReadAssistantProfiles()
+  return profiles.length > 0 ? profiles.length : 6
 }
 
 export function assistantCode(i: number): string {
@@ -459,8 +661,31 @@ export function getAssistantIndexForEmployee(employeeIndex1Based: number, assist
   return Math.max(1, Math.min(assistantCount, Math.floor(t * assistantCount) + 1))
 }
 
+export function getAssistantProfiles(): AssistantProfile[] {
+  return safeReadAssistantProfiles()
+}
+
 export function getAssistantCodes(assistantCount: number): string[] {
   return Array.from({ length: assistantCount }, (_, i) => assistantCode(i + 1))
+}
+
+function vehicleCode(i: number): string {
+  return `VEH-${pad3(i)}`
+}
+
+export function getVehicleProfiles(): VehicleProfile[] {
+  return safeReadVehicleProfiles()
+}
+
+export function getDefaultVehicleCount(): number {
+  const profiles = safeReadVehicleProfiles()
+  return profiles.length > 0 ? profiles.length : 6
+}
+
+export function getVehicleCodes(vehicleCount: number): string[] {
+  const profiles = safeReadVehicleProfiles()
+  if (profiles.length > 0) return profiles.slice(0, vehicleCount).map((p) => p.code)
+  return Array.from({ length: vehicleCount }, (_, i) => vehicleCode(i + 1))
 }
 
 export function getDefaultSeedMonths(): number {

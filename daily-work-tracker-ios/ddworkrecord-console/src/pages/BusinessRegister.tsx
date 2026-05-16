@@ -8,6 +8,9 @@ export default function BusinessRegister() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  type BusinessCountry = 'ZA' | 'US'
+  const [businessCountry, setBusinessCountry] = useState<BusinessCountry>('ZA')
+
   const [businessCode, setBusinessCode] = useState<string | null>(null)
 
   const submit = async () => {
@@ -29,11 +32,16 @@ export default function BusinessRegister() {
 
     setBusy(true)
     try {
-      const res = await registerBusiness({ businessName: name, contactEmail: email || undefined })
+      const res = await registerBusiness({
+        businessName: name,
+        contactEmail: email || undefined,
+        businessCountry,
+      })
       setBusinessCode(res.businessCode)
 
       localStorage.setItem('ddworkrecord_business_code', res.businessCode)
-      window.location.hash = '#business-dashboard'
+      localStorage.setItem('ddworkrecord_business_country', businessCountry)
+      // Stay on this page and show welcome + next steps (console "Get Started")
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to register business.'
       setError(message)
@@ -74,6 +82,33 @@ export default function BusinessRegister() {
                 color: theme.text,
               }}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Business country</label>
+            <select
+              aria-label="Business country"
+              title="Business country"
+              value={businessCountry}
+              onChange={(e) => setBusinessCountry((e.target.value === 'US' ? 'US' : 'ZA') as BusinessCountry)}
+              style={{
+                width: '100%',
+                height: 42,
+                padding: '0 10px',
+                borderRadius: theme.radiusSm,
+                border: `2px solid ${theme.text}`,
+                fontWeight: 950,
+                outline: 'none',
+                background: theme.surface,
+                color: theme.text,
+              }}
+            >
+              <option value="ZA">South Africa</option>
+              <option value="US">USA</option>
+            </select>
+            <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12 }}>
+              Used for public-holiday hour classification.
+            </div>
           </div>
 
           <div>
@@ -123,11 +158,36 @@ export default function BusinessRegister() {
 
         {businessCode ? (
           <div style={{ marginTop: 16, padding: 12, border: `2px dashed ${theme.borderStrong}`, borderRadius: theme.radiusSm, background: theme.accentPillBg }}>
-            <div style={{ fontWeight: 1100, marginBottom: 6, color: theme.text }}>Your business code</div>
+            <div style={{ fontWeight: 1100, marginBottom: 6, color: theme.text }}>Welcome — your code is ready</div>
             <div style={{ fontWeight: 1100, fontSize: 18, color: theme.text }}>{businessCode}</div>
-            <div style={{ marginTop: 6, color: theme.muted2, fontWeight: 850, fontSize: 12.5 }}>
-              You’ve been logged in automatically.
+
+            <div style={{ marginTop: 10, color: theme.muted2, fontWeight: 850, fontSize: 12.5, lineHeight: 1.5 }}>
+              {contactEmail.trim()
+                ? `We’ll email your login details to: ${contactEmail.trim()}`
+                : 'Add a contact email next time to receive login details by email.'}
             </div>
+
+            <button
+              onClick={() => {
+                // Opens the console Settings page.
+                window.location.hash = '#settings'
+              }}
+              style={{
+                marginTop: 12,
+                padding: '12px 16px',
+                border: `2px solid ${theme.accentDark}`,
+                background: theme.accent,
+                color: '#fff',
+                cursor: 'pointer',
+                fontWeight: 1100,
+                borderRadius: theme.radiusSm,
+                boxShadow: `3px 3px 0 ${theme.accentDark}`,
+                whiteSpace: 'nowrap',
+                width: '100%',
+              }}
+            >
+              Get Started (console settings)
+            </button>
           </div>
         ) : null}
       </div>

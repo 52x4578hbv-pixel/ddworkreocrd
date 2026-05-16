@@ -40,7 +40,12 @@ export type LocalPreviewWorkday = {
   startTime: string
   endTime: string
   employeeCode: string
+  // local-preview only
+  vehicleId: string | null
   totalHours: number
+  jobHours: number
+  jobStartTime: string
+  jobEndTime: string
   totalDistanceKm: number
   mileage: number | null
   fuelCost: number
@@ -63,8 +68,25 @@ export type LocalPreviewWorkday = {
 
 export type LocalPreviewMonthBreakdownBase = {
   totalHours: number
+
+  // Mon–Fri within 07:30–16:30 (non-holiday)
   normalHours: number
+
+  // Mon–Fri outside 07:30–16:30 (non-holiday)
+  weekdayOvertimeHours: number
+
+  // Saturday (non-holiday)
+  saturdayHours: number
+
+  // Sunday (non-holiday)
+  sundayHours: number
+
+  // Public holiday hours depend on the local-preview sandbox country selection.
+  publicHolidayHours: number
+
+  // Legacy field used by existing UI: overtimeHours = totalHours - normalHours
   overtimeHours: number
+
   fuelCost: number
   supplierSpend: number
 }
@@ -74,9 +96,17 @@ type Draft = {
   date: string
   startTime: string
   endTime: string
+  // new: seed now stores the employeeCode directly
+  employeeCode?: string
+  // local-preview only
+  vehicleId?: string | null
   mileage: number | null
   fuelCost: number | null
   supplierCost: number | null
+
+  // iOS job segment times (for job-segment hour reports)
+  jobStartTime?: string
+  jobEndTime?: string
 
   // iOS job fields (needed for the Jobs tab filters)
   jobIdNumber: string
@@ -123,6 +153,34 @@ type Draft = {
 }
 
 const STORAGE_KEY = 'ddworkrecord_draft_queue_v1'
+const LOCAL_PREVIEW_COUNTRY_KEY = 'ddworkrecord_local_preview_country'
+const BUSINESS_COUNTRY_KEY = 'ddworkrecord_business_country'
+type PreviewCountry = 'ZA' | 'US'
+
+function normalizeCountry(raw: string | null): PreviewCountry | null {
+  if (raw === 'US') return 'US'
+  if (raw === 'ZA') return 'ZA'
+  return null
+}
+
+function readPreviewCountry(): PreviewCountry {
+  try {
+    // 1) explicit sandbox override
+    const localRaw = localStorage.getItem(LOCAL_PREVIEW_COUNTRY_KEY)
+    const local = normalizeCountry(localRaw)
+    if (local) return local
+
+    // 2) fallback to globally registered business country
+    const businessRaw = localStorage.getItem(BUSINESS_COUNTRY_KEY)
+    const business = normalizeCountry(businessRaw)
+    if (business) return business
+
+    // 3) default
+    return 'ZA'
+  } catch {
+    return 'ZA'
+  }
+}
 
 export function toMinutes(hhmm: string): number | null {
   const [h, m] = hhmm.split(':').map(Number)
@@ -202,8 +260,21 @@ export function getLocalPreviewWorkdays(): LocalPreviewWorkday[] {
       const fuelCost = d.fuelCost ?? 0
       const supplierSpend = d.supplierCost ?? 0
 
-      const idx = hashStringToInt(`${d.localId}:${d.date}:${d.startTime}`) % codes.length
-      const employeeCode = codes[idx]
+      const jobStartTime =
+        typeof d.jobStartTime === 'string' && d.jobStartTime.trim() ? d.jobStartTime.trim() : d.startTime
+
+      const jobEndTime =
+        typeof d.jobEndTime === 'string' && d.jobEndTime.trim() ? d.jobEndTime.trim() : d.endTime
+
+      const jobHours = calcDurationHours(jobStartTime, jobEndTime)
+
+      // Back-compat: older seeded drafts didn't store employeeCode.
+      const employeeCode =
+        typeof d.employeeCode === 'string' && d.employeeCode.trim()
+          ? d.employeeCode.trim()
+          : codes[hashStringToInt(`${d.localId}:${d.date}:${d.startTime}`) % codes.length]
+
+      const vehicleId = typeof d.vehicleId === 'string' && d.vehicleId.trim() ? d.vehicleId.trim() : null
 
       const supplierStops: SupplierStop[] = (d.supplierStops ?? []).map((s) => {
         const durationHours = calcDurationHours(s.arrivalTime, s.departureTime)
@@ -248,7 +319,11 @@ export function getLocalPreviewWorkdays(): LocalPreviewWorkday[] {
         startTime: d.startTime,
         endTime: d.endTime,
         employeeCode,
+        vehicleId,
         totalHours,
+        jobHours,
+        jobStartTime,
+        jobEndTime,
         totalDistanceKm,
         mileage: d.mileage ?? null,
         fuelCost,
@@ -288,28 +363,108 @@ export function getLocalPreviewSummary(period: Period, employeeCode?: string | n
 export function getLocalPreviewMonthBreakdownBase(): LocalPreviewMonthBreakdownBase {
   const drafts = loadDrafts()
 
-  let totalHours = 0
-  let normalHours = 0
-  let overtimeHours = 0
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
+  const parseDateUtc = (isoDate: string) => new Date(`${isoDate}T00:00:00.000Z`)
+
+  const previewCountry = readPreviewCountry()
+
+  // Public holiday calculation for sandbox preview-only.
+  // Fixed-date holidays only (movable holidays not included yet).
+  const isPublicHolidayUtc = (isoDate: string): boolean => {
+    const d = parseDateUtc(isoDate)
+    const month = d.getUTCMonth() // 0-11
+    const day = d.getUTCDate() // 1-31
+
+    if (previewCountry === 'US') {
+      // Minimal fixed-date USA set for now (extend later).
+      const fixedUS: Array<[number, number]> = [
+        [0, 1], // Jan 1
+        [6, 4], // Jul 4
+        [11, 25], // Dec 25
+      ]
+      return fixedUS.some(([m, dd]) => m === month && dd === day)
+    }
+
+    // South Africa fixed-date public holidays (preview-only).
+    const fixedZA: Array<[number, number]> = [
+      [0, 1], // Jan 1
+      [2, 21], // Mar 21
+      [3, 27], // Apr 27 (Freedom Day)
+      [4, 1], // May 1 (Workers' Day)
+      [5, 16], // Jun 16 (Youth Day)
+      [7, 9], // Aug 9 (National Women's Day)
+      [8, 24], // Sep 24 (Heritage Day)
+      [11, 16], // Dec 16 (Day of Reconciliation)
+      [11, 25], // Dec 25 (Christmas)
+      [11, 26], // Dec 26 (Day of Goodwill)
+    ]
+
+    return fixedZA.some(([m, dd]) => m === month && dd === day)
+  }
+
+  const normalStartMin = 7 * 60 + 30 // 07:30
+  const normalEndMin = 16 * 60 + 30 // 16:30
+
+  let totalMinutes = 0
+  let normalMinutes = 0
+  let weekdayOvertimeMinutes = 0
+  let saturdayMinutes = 0
+  let sundayMinutes = 0
+  let publicHolidayMinutes = 0
+
   let fuelCost = 0
   let supplierSpend = 0
 
   for (const d of drafts) {
-    const h = calcTotalHours(d.startTime, d.endTime)
-    const split = calcNormalOvertimeHours(d.startTime, d.endTime)
+    const start = toMinutes(d.startTime)
+    const end = toMinutes(d.endTime)
+    if (start === null || end === null) continue
 
-    totalHours += h
-    normalHours += split.normalHours
-    overtimeHours += split.overtimeHours
+    const minutes = Math.max(0, end - start)
+    if (minutes <= 0) continue
+
+    totalMinutes += minutes
+
+    const isHoliday = isPublicHolidayUtc(d.date)
+    const dateUtc = parseDateUtc(d.date)
+    const dow = dateUtc.getUTCDay() // Sun=0..Sat=6
+
+    if (isHoliday) {
+      publicHolidayMinutes += minutes
+    } else if (dow === 6) {
+      // Saturday
+      saturdayMinutes += minutes
+    } else if (dow === 0) {
+      // Sunday
+      sundayMinutes += minutes
+    } else {
+      // Mon-Fri: split normal vs weekday overtime
+      const overlap = clamp(Math.min(end, normalEndMin) - Math.max(start, normalStartMin), 0, minutes)
+      normalMinutes += overlap
+      weekdayOvertimeMinutes += minutes - overlap
+    }
 
     fuelCost += d.fuelCost ?? 0
     supplierSpend += d.supplierCost ?? 0
   }
 
+  const totalHours = roundHours(totalMinutes / 60)
+  const normalHours = roundHours(normalMinutes / 60)
+  const weekdayOvertimeHours = roundHours(weekdayOvertimeMinutes / 60)
+  const saturdayHours = roundHours(saturdayMinutes / 60)
+  const sundayHours = roundHours(sundayMinutes / 60)
+  const publicHolidayHours = roundHours(publicHolidayMinutes / 60)
+
   return {
-    totalHours: roundHours(totalHours),
-    normalHours: roundHours(normalHours),
-    overtimeHours: roundHours(overtimeHours),
+    totalHours,
+    normalHours,
+    weekdayOvertimeHours,
+    saturdayHours,
+    sundayHours,
+    publicHolidayHours,
+    // legacy field expected by existing UI:
+    // "overtimeHours" = weekday overtime only (Sat/Sun/PH are separate buckets)
+    overtimeHours: weekdayOvertimeHours,
     fuelCost: Math.round(fuelCost * 100) / 100,
     supplierSpend: Math.round(supplierSpend * 100) / 100,
   }

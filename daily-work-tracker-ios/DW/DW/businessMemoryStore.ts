@@ -4,6 +4,7 @@ export type BusinessTenant = {
   tenantId: string;
   businessName: string | null;
   contactEmail: string | null;
+  businessCountry: string | null;
   createdAt: string;
   updatedAt?: string;
 };
@@ -23,7 +24,7 @@ const generateAccessCode = () => {
 };
 
 export const businessMemoryStore = {
-  registerBusiness: (params: { businessName: string; contactEmail?: string | null }) => {
+  registerBusiness: (params: { businessName: string; contactEmail?: string | null; businessCountry?: string | null }) => {
     const tenantId = generateTenantId();
     const now = new Date().toISOString();
 
@@ -31,6 +32,7 @@ export const businessMemoryStore = {
       tenantId,
       businessName: params.businessName,
       contactEmail: params.contactEmail ?? null,
+      businessCountry: params.businessCountry ?? null,
       createdAt: now,
       updatedAt: now,
     };

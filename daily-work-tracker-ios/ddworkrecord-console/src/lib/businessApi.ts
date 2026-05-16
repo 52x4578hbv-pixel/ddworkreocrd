@@ -46,7 +46,11 @@ async function authedFetch(path: string, init: RequestInit = {}): Promise<Respon
   })
 }
 
-export async function registerBusiness(input: { businessName: string; contactEmail?: string }) {
+export async function registerBusiness(input: {
+  businessName: string
+  contactEmail?: string
+  businessCountry?: string
+}) {
   const res = await fetch(`${API_BASE_URL}/api/v1/business/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

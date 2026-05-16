@@ -10,6 +10,7 @@ const router = express.Router()
 type BusinessRegisterBody = {
   businessName?: string
   contactEmail?: string
+  businessCountry?: string
 }
 
 type AccessCodeRecord = {
@@ -106,6 +107,9 @@ router.post('/register', async (req: Request, res: Response) => {
   const businessName = (body?.businessName ?? '').toString().trim()
   const contactEmail = (body?.contactEmail ?? '').toString().trim()
 
+  const businessCountryRaw = (body?.businessCountry ?? '').toString().trim().toUpperCase()
+  const businessCountry: 'ZA' | 'US' = businessCountryRaw === 'US' ? 'US' : 'ZA'
+
   if (!businessName) {
     return res.status(400).json({ error: 'businessName is required.' })
   }
@@ -125,6 +129,7 @@ router.post('/register', async (req: Request, res: Response) => {
         tenantId,
         businessName,
         contactEmail: contactEmail || null,
+        businessCountry,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -143,6 +148,7 @@ router.post('/register', async (req: Request, res: Response) => {
         tenantId,
         businessName,
         contactEmail: contactEmail || null,
+        businessCountry,
         createdAt: new Date().toISOString(),
       })
 
@@ -160,6 +166,7 @@ router.post('/register', async (req: Request, res: Response) => {
         businessMemoryStore.registerBusiness({
           businessName,
           contactEmail: contactEmail || null,
+          businessCountry,
         })
       )
     } catch (_e) {

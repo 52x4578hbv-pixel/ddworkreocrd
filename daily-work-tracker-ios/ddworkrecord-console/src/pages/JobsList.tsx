@@ -253,38 +253,34 @@ export default function JobsList() {
               </div>
             </div>
 
-              <div style={{ marginTop: 12, padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
-                <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Job description</div>
-                <div style={{ marginTop: 6, fontWeight: 1000, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>
-                  {r.jobDescription || '—'}
-                </div>
-              </div>
+            <div style={{ marginTop: 12, padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+              <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Job description</div>
+              <div style={{ marginTop: 6, fontWeight: 1000, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>{r.jobDescription || '—'}</div>
+            </div>
 
-              <div style={{ marginTop: 12, padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
-                <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Notes (end-day / employee log)</div>
-                <div style={{ marginTop: 6, fontWeight: 900, lineHeight: 1.35, whiteSpace: 'pre-wrap', color: '#0f172a' }}>
-                  {r.notes || '—'}
-                </div>
-              </div>
+            <div style={{ marginTop: 12, padding: 12, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
+              <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Notes (end-day / employee log)</div>
+              <div style={{ marginTop: 6, fontWeight: 900, lineHeight: 1.35, whiteSpace: 'pre-wrap', color: '#0f172a' }}>{r.notes || '—'}</div>
+            </div>
 
             <div style={{ marginTop: 12 }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.hash = `#record/${r.id}`
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      border: `2px solid ${theme.text}`,
-                      borderRadius: theme.radiusSm,
-                      background: theme.surface,
-                      cursor: 'pointer',
-                      fontWeight: 1000,
-                      boxShadow: `3px 3px 0 ${theme.text}`,
-                      width: '100%',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.hash = `#record/${r.id}`
+                }}
+                style={{
+                  padding: '10px 12px',
+                  border: `2px solid ${theme.text}`,
+                  borderRadius: theme.radiusSm,
+                  background: theme.surface,
+                  cursor: 'pointer',
+                  fontWeight: 1000,
+                  boxShadow: `3px 3px 0 ${theme.text}`,
+                  width: '100%',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 Open record detail
               </button>
             </div>

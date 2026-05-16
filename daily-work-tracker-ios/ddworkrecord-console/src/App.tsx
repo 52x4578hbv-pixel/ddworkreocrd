@@ -21,6 +21,7 @@ import BusinessRegister from './pages/BusinessRegister'
 import BusinessLogin from './pages/BusinessLogin'
 import BusinessDashboard from './pages/BusinessDashboard'
 import Home from './pages/Home'
+import AssistantPage from './pages/AssistantPage'
 
 // Routes are based on the URL hash (no React Router in this project)
 type Route =
@@ -62,7 +63,6 @@ function getRouteFromHash(): Route {
 
   // Priority redirects when no hash is provided (public landing page)
   if (!h) {
-    if (businessCode) return 'business-dashboard'
     if (adminToken) return 'dashboard'
     return 'home'
   }
@@ -73,6 +73,7 @@ function getRouteFromHash(): Route {
   if (h === 'settings') return 'settings'
   if (h === 'admin') return 'admin'
   if (h === 'token-viewer') return 'token-viewer'
+  if (h === 'dashboard') return 'dashboard'
   if (h === 'local-preview') return 'local-preview'
   if (h === 'dummy-local-preview') return 'dummy-local-preview'
   if (h === 'business-register') return 'business-register'
@@ -85,10 +86,11 @@ function getRouteFromHash(): Route {
   if (h === 'supplier-reports') return 'supplier-reports'
 
   if (h.startsWith('employee/')) return h
+  if (h.startsWith('assistant/')) return h
   if (h.startsWith('record/')) return h
 
   // Fallback (unknown hash)
-  return businessCode ? 'business-dashboard' : 'home'
+  return 'home'
 }
 
 function Navigation({ current }: { current: Route }) {
@@ -184,6 +186,7 @@ export default function App() {
     if (route === 'local-preview') return <LocalPreviewShell />
     if (route === 'dummy-local-preview') return <DummyLocalPreview />
     if (route.startsWith('employee/')) return <EmployeePage />
+    if (route.startsWith('assistant/')) return <AssistantPage />
     if (route.startsWith('record/')) return <RecordDetail />
     if (route === 'jobs') return <JobsReports />
     if (route === 'jobs-list') return <JobsList />

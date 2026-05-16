@@ -10,6 +10,7 @@ import {
   getDefaultAssistantCount,
   getAssistantCodes,
   getAssistantIndexForEmployee,
+  getAssistantProfiles,
 } from '../lib/localPreviewSeed'
 
 type StatsResponse = {
@@ -52,8 +53,6 @@ function GraphBar(props: { label: string; value: number; max: number }) {
   )
 }
 
-const EMPLOYEE_COUNT = getDefaultEmployeeCount()
-
 function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
@@ -69,20 +68,36 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
 
   const localPreview = isLocalPreviewMode()
+  const useTemplate = localPreview || !stats
+  const employeeCount = getDefaultEmployeeCount()
 
   const localBase: LocalPreviewMonthBreakdownBase = getLocalPreviewMonthBreakdownBase()
 
   const employeeRows = useMemo(() => {
-    const codes = getEmployeeCodes(EMPLOYEE_COUNT)
+    const codes = getEmployeeCodes(employeeCount)
 
     return codes.map((code, idx) => {
       const m = getEmployeeMultiplier(idx + 1)
+
       const totalHours = round2(localBase.totalHours * m)
       const normalHours = round2(localBase.normalHours * m)
-      const overtimeHours = round2(localBase.overtimeHours * m)
-      return { employeeCode: code, totalHours, normalHours, overtimeHours, multiplier: m }
+      const weekdayOvertimeHours = round2(localBase.weekdayOvertimeHours * m)
+      const saturdayHours = round2(localBase.saturdayHours * m)
+      const sundayHours = round2(localBase.sundayHours * m)
+      const publicHolidayHours = round2(localBase.publicHolidayHours * m)
+
+      return {
+        employeeCode: code,
+        totalHours,
+        normalHours,
+        weekdayOvertimeHours,
+        saturdayHours,
+        sundayHours,
+        publicHolidayHours,
+        multiplier: m,
+      }
     })
-  }, [localBase])
+  }, [localBase, employeeCount])
 
   // Non-sandbox totals fallback (cloud-driven)
   const cloudTotals = useMemo(() => {
@@ -93,8 +108,12 @@ export default function Dashboard() {
     }
   }, [stats])
 
+  const assistantProfiles = useMemo(() => {
+    return getAssistantProfiles()
+  }, [])
+
   const assistantRows = useMemo(() => {
-    if (!localPreview) return null
+    if (!useTemplate) return null
     const assistantCount = getDefaultAssistantCount()
     const assistantCodes = getAssistantCodes(assistantCount)
 
@@ -102,7 +121,10 @@ export default function Dashboard() {
       assistantCode,
       totalHours: 0,
       normalHours: 0,
-      overtimeHours: 0,
+      weekdayOvertimeHours: 0,
+      saturdayHours: 0,
+      sundayHours: 0,
+      publicHolidayHours: 0,
     }))
 
     for (let i = 0; i < employeeRows.length; i++) {
@@ -112,20 +134,26 @@ export default function Dashboard() {
       const target = totalsByAssistant[assistantIndex1Based - 1]
       target.totalHours += row.totalHours
       target.normalHours += row.normalHours
-      target.overtimeHours += row.overtimeHours
+      target.weekdayOvertimeHours += row.weekdayOvertimeHours
+      target.saturdayHours += row.saturdayHours
+      target.sundayHours += row.sundayHours
+      target.publicHolidayHours += row.publicHolidayHours
     }
 
     return totalsByAssistant.map((r) => ({
       ...r,
       totalHours: round2(r.totalHours),
       normalHours: round2(r.normalHours),
-      overtimeHours: round2(r.overtimeHours),
+      weekdayOvertimeHours: round2(r.weekdayOvertimeHours),
+      saturdayHours: round2(r.saturdayHours),
+      sundayHours: round2(r.sundayHours),
+      publicHolidayHours: round2(r.publicHolidayHours),
     }))
   }, [employeeRows, localPreview])
 
   const displayedStats = useMemo(() => {
-    if (localPreview) {
-      const sumMultiplier = Array.from({ length: EMPLOYEE_COUNT }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
+    if (useTemplate) {
+      const sumMultiplier = Array.from({ length: employeeCount }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
         (a, b) => a + b,
         0
       )
@@ -136,7 +164,7 @@ export default function Dashboard() {
       }
     }
     return cloudTotals
-  }, [localPreview, localBase, cloudTotals, employeeRows])
+  }, [useTemplate, localBase, cloudTotals, employeeRows, employeeCount])
 
   const refresh = async () => {
     setError(null)
@@ -241,7 +269,7 @@ export default function Dashboard() {
       <div style={{ marginTop: 18 }}>
         <div style={{ fontWeight: 1000, fontSize: 16 }}>Current Employees</div>
         <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
-          Total hours / normal hours (7am-5pm) / overtime (outside 7am-5pm)
+          Total hours / Normal (Mon–Fri 07:30–16:30) / Overtime (Mon–Fri outside) / Sat / Sun / Public Holiday
         </div>
 
         <div style={{ marginTop: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'auto' }}>
@@ -249,13 +277,16 @@ export default function Dashboard() {
             <thead>
               <tr style={{ background: theme.pageBg }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>Employee</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>1) Total Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>2) Normal Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>3) Overtime Hours</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>1) Total</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>2) Normal</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>3) Overtime (Mon–Fri)</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>4) Saturday</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>5) Sunday</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>6) Public Holiday</th>
               </tr>
             </thead>
             <tbody>
-              {localPreview ? (
+              {useTemplate ? (
                 employeeRows.map((row) => {
                   return (
                     <tr key={row.employeeCode}>
@@ -283,8 +314,11 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.totalHours)}</td>
                       <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.normalHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.overtimeHours)}</td>
-                        </tr>
+                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.weekdayOvertimeHours)}</td>
+                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.saturdayHours)}</td>
+                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.sundayHours)}</td>
+                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
+                    </tr>
                   )
                 })
               ) : (
@@ -294,10 +328,13 @@ export default function Dashboard() {
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(cloudTotals.totalHours)} hrs</td>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
                   </tr>
                 ) : (
                   <tr>
-                    <td colSpan={4} style={{ padding: 24, textAlign: 'center', color: '#64748b', fontWeight: 800 }}>
+                    <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#64748b', fontWeight: 800 }}>
                       {loading ? 'Refreshing cloud metrics...' : 'No cloud data available. Log in and sync to begin.'}
                     </td>
                   </tr>
@@ -320,17 +357,24 @@ export default function Dashboard() {
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>Assistant</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>1) Total Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>2) Normal Hours</th>
-                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>3) Overtime Hours</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>1) Total</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>2) Normal</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>3) Overtime (Mon–Fri)</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>4) Saturday</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>5) Sunday</th>
+                <th style={{ textAlign: 'right', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>6) Public Holiday</th>
               </tr>
             </thead>
             <tbody>
-              {localPreview && assistantRows ? (
+              {useTemplate && assistantRows ? (
                 assistantRows.map((row) => (
                   <tr key={row.assistantCode}>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
-                      <div
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#assistant/${row.assistantCode}`
+                        }}
                         style={{
                           display: 'inline-block',
                           width: '100%',
@@ -339,13 +383,21 @@ export default function Dashboard() {
                           border: '2px solid #0f172a',
                           borderRadius: 10,
                           background: '#fff',
-                          cursor: 'default',
+                          cursor: 'pointer',
                           fontWeight: 1000,
                           color: '#0f172a',
                         }}
                       >
-                        {row.assistantCode}
-                      </div>
+                        {(() => {
+                          const code = row.assistantCode.toUpperCase()
+                          const match = assistantProfiles.find((p) => p.code.toUpperCase() === code)
+                          const first = match?.firstName?.trim()
+                          const last = match?.lastName?.trim()
+
+                          if (first || last) return `${row.assistantCode} (${[first, last].filter(Boolean).join(' ')})`
+                          return row.assistantCode
+                        })()}
+                      </button>
                     </td>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>
                       {format2(row.totalHours)}
@@ -354,17 +406,29 @@ export default function Dashboard() {
                       {format2(row.normalHours)}
                     </td>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>
-                      {format2(row.overtimeHours)}
+                      {format2(row.weekdayOvertimeHours)}
+                    </td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>
+                      {format2(row.saturdayHours)}
+                    </td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>
+                      {format2(row.sundayHours)}
+                    </td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>
+                      {format2(row.publicHolidayHours)}
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }}>—</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                </tr>
+                  <tr>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  </tr>
               )}
             </tbody>
           </table>

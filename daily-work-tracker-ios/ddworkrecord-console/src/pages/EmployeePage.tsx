@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchStats, type Period } from '../lib/api'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
-import { getEmployeeMultiplier, getDefaultEmployeeCount } from '../lib/localPreviewSeed'
+import { getEmployeeMultiplier, getDefaultEmployeeCount, getEmployeeProfiles } from '../lib/localPreviewSeed'
 import { theme } from '../lib/theme'
-
-const EMPLOYEE_COUNT = getDefaultEmployeeCount()
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -15,20 +13,21 @@ function format2(n: number): string {
   return round2(n).toFixed(2)
 }
 
-function parseEmployeeCode(raw: string | null): string | null {
+function parseEmployeeCode(raw: string | null, employeeCount: number): string | null {
   // expects: #employee/EMP-00X up to configured range
   if (!raw) return null
   const m = /^EMP-(\d{3})$/.exec(raw)
   if (!m) return null
   const idx = Number(m[1])
   if (!Number.isFinite(idx)) return null
-  if (idx < 1 || idx > EMPLOYEE_COUNT) return null
+  if (idx < 1 || idx > employeeCount) return null
   return `EMP-${m[1]}`
 }
 
 export default function EmployeePage() {
   const localPreview = isLocalPreviewMode()
   const [period] = useState<Period>('month')
+  const employeeCount = getDefaultEmployeeCount()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -37,8 +36,8 @@ export default function EmployeePage() {
     const h = window.location.hash.split('?')[0].replace('#', '').replace(/^\//, '')
     const parts = h.split('/')
     const maybeCode = parts.length >= 2 ? parts[1] : null
-    return parseEmployeeCode(maybeCode)
-  }, [window.location.hash])
+    return parseEmployeeCode(maybeCode, employeeCount)
+  }, [window.location.hash, employeeCount])
 
   const [statsGrandTotals, setStatsGrandTotals] = useState<{
     totalHours: number
@@ -47,6 +46,11 @@ export default function EmployeePage() {
   } | null>(null)
 
   const localBase: LocalPreviewMonthBreakdownBase = useMemo(() => getLocalPreviewMonthBreakdownBase(), [])
+  const employeeProfile = useMemo(() => {
+    if (!employeeCode) return null
+    const profiles = getEmployeeProfiles()
+    return profiles.find((p) => p.code === employeeCode) ?? null
+  }, [employeeCode])
 
   useEffect(() => {
     if (!employeeCode) return
@@ -89,8 +93,20 @@ export default function EmployeePage() {
 
     const totalHours = round2(localBase.totalHours * multiplier)
     const normalHours = round2(localBase.normalHours * multiplier)
-    const overtimeHours = round2(localBase.overtimeHours * multiplier)
-    return { multiplier, totalHours, normalHours, overtimeHours }
+    const weekdayOvertimeHours = round2(localBase.weekdayOvertimeHours * multiplier)
+    const saturdayHours = round2(localBase.saturdayHours * multiplier)
+    const sundayHours = round2(localBase.sundayHours * multiplier)
+    const publicHolidayHours = round2(localBase.publicHolidayHours * multiplier)
+
+    return {
+      multiplier,
+      totalHours,
+      normalHours,
+      weekdayOvertimeHours,
+      saturdayHours,
+      sundayHours,
+      publicHolidayHours,
+    }
   }, [employeeCode, localBase])
 
   if (!employeeCode) {
@@ -98,7 +114,7 @@ export default function EmployeePage() {
       <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 920 }}>
         <div style={{ fontWeight: 1000, fontSize: 18 }}>Employee</div>
         <div style={{ marginTop: 10, color: '#ef4444', fontWeight: 900 }}>
-          Missing/invalid employee code in URL hash. Expected: <span style={{ fontFamily: 'ui-monospace' }}>#employee/EMP-001</span> (through EMP-{String(EMPLOYEE_COUNT).padStart(3, '0')})
+          Missing/invalid employee code in URL hash. Expected: <span style={{ fontFamily: 'ui-monospace' }}>#employee/EMP-001</span> (through EMP-{String(employeeCount).padStart(3, '0')})
         </div>
       </div>
     )
@@ -112,7 +128,7 @@ export default function EmployeePage() {
   const fuelSharePreview = useMemo(() => {
     if (!localRow) return 0
     const idx = employeeCode ? Number(/^EMP-(\d+)$/.exec(employeeCode)?.[1] ?? '1') : 1
-    const sumMultiplier = Array.from({ length: EMPLOYEE_COUNT }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
+    const sumMultiplier = Array.from({ length: employeeCount }, (_, i) => getEmployeeMultiplier(i + 1)).reduce(
       (a, b) => a + b,
       0
     )
@@ -134,7 +150,14 @@ export default function EmployeePage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 1000, fontSize: 18 }}>Employee Detail</div>
-          <div style={{ marginTop: 6, color: '#475569', fontWeight: 900 }}>Employee: {employeeCode}</div>
+          <div style={{ marginTop: 6, color: '#475569', fontWeight: 900 }}>
+            Employee: {employeeCode}
+            {employeeProfile ? (
+              <span style={{ marginLeft: 10, color: '#0f172a', fontWeight: 1000, fontSize: 13 }}>
+                {employeeProfile.firstName} {employeeProfile.lastName}
+              </span>
+            ) : null}
+          </div>
           <div style={{ marginTop: 4, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
             {localPreview ? 'Sandbox template only • no cloud writes' : 'Cloud-driven totals (if available)'}
           </div>
@@ -188,13 +211,32 @@ export default function EmployeePage() {
           </div>
 
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>
-            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Normal Hours (7am-5pm)</div>
+            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Normal Hours (Mon–Fri 07:30–16:30)</div>
             <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>{localRow ? format2(localRow.normalHours) : '—'}</div>
           </div>
 
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>
-            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Overtime Hours</div>
-            <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>{localRow ? format2(localRow.overtimeHours) : '—'}</div>
+            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Overtime Hours (Mon–Fri outside normal)</div>
+            <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>
+              {localRow ? format2(localRow.weekdayOvertimeHours) : '—'}
+            </div>
+          </div>
+
+          <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>
+            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Saturday Hours</div>
+            <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>{localRow ? format2(localRow.saturdayHours) : '—'}</div>
+          </div>
+
+          <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>
+            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Sunday Hours</div>
+            <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>{localRow ? format2(localRow.sundayHours) : '—'}</div>
+          </div>
+
+          <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>
+            <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Public Holiday Hours</div>
+            <div style={{ marginTop: 8, fontSize: 26, fontWeight: 1000 }}>
+              {localRow ? format2(localRow.publicHolidayHours) : '—'}
+            </div>
           </div>
 
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12 }}>

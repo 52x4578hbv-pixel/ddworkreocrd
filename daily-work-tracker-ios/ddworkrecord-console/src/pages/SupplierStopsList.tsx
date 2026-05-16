@@ -16,12 +16,12 @@ function formatDistanceKm(distanceMeters: number | null): string {
   return `${format2(distanceMeters / 1000)} km`
 }
 
-function fmtJobId(jobId: string | null): string {
-  return jobId ? jobId : '—'
-}
-
 function fmtMiles(v: number | null): string {
   return v === null || !Number.isFinite(v) ? '—' : `${format2(v)} km`
+}
+
+function fmtJobId(jobId: string | null): string {
+  return jobId ? jobId : '—'
 }
 
 function ReceiptCount({ ids }: { ids: string[] }) {
@@ -197,6 +197,7 @@ export default function SupplierStopsList() {
             />
           </div>
         </div>
+
       </div>
 
       <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
@@ -280,6 +281,7 @@ function SupplierStopCard({ stop, index }: { stop: SupplierStop; index: number }
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Job ID (optional)</div>
           <div style={{ marginTop: 6, fontWeight: 1000 }}>{fmtJobId(stop.jobId)}</div>
         </div>
+
         <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#f8fafc' }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Distance</div>
           <div style={{ marginTop: 6, fontWeight: 1000 }}>{formatDistanceKm(stop.distanceMeters)}</div>

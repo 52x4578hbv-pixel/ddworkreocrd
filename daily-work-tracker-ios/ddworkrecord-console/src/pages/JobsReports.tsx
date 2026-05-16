@@ -67,12 +67,12 @@ export default function JobsReports() {
   }, [workdays, start])
 
   const totals = useMemo(() => {
-    const totalHours = filtered.reduce((acc, w) => acc + (Number.isFinite(w.totalHours) ? w.totalHours : 0), 0)
+    const jobHours = filtered.reduce((acc, w) => acc + (Number.isFinite(w.jobHours) ? w.jobHours : 0), 0)
 
     const byStatus = filtered.reduce(
       (acc, w) => {
         const status = w.jobStatus as JobStatus
-        acc[status] += w.totalHours
+        acc[status] += w.jobHours
         return acc
       },
       { complete: 0, 'return-required': 0 } as Record<JobStatus, number>
@@ -82,7 +82,7 @@ export default function JobsReports() {
 
     return {
       jobCount,
-      totalHours: round2(totalHours),
+      totalHours: round2(jobHours),
       completeHours: round2(byStatus.complete),
       returnHours: round2(byStatus['return-required']),
     }
@@ -203,8 +203,7 @@ export default function JobsReports() {
       </div>
 
       <div style={{ marginTop: 14, color: theme.muted2, fontWeight: 900, fontSize: 12 }}>
-        Note: local preview “job hours” use the workday total hours (template data). Real job-segment hours can be wired later if you have a
-        separate computed field.
+        Note: local preview “job hours” use job-segment start/end times (template data).
       </div>
 
       <div style={{ marginTop: 18, padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
