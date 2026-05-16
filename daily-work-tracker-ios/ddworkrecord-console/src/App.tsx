@@ -148,7 +148,7 @@ function Navigation({ current }: { current: Route }) {
         )
       })}
       <a
-        href="#login"
+        href="#home"
         onClick={() => {
           localStorage.removeItem('ddworkrecord_admin_token')
           localStorage.removeItem('ddworkrecord_business_code')

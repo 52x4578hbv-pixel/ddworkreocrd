@@ -136,11 +136,18 @@ function BusinessNav({ current }: { current: BusinessTab }) {
   )
 }
 
+const BUSINESS_CODE_LS_KEY = 'ddworkrecord_business_code'
+
 const LS_BUSINESS_ADDRESS = 'ddworkrecord_business_address'
 const LS_EMPLOYEE_CODES = 'ddworkrecord_employee_codes_csv'
 const LS_VEHICLE_CODES = 'ddworkrecord_vehicle_codes_csv'
 const LS_JOB_CODES = 'ddworkrecord_job_codes_csv'
 const LS_ASSISTANT_CODES = 'ddworkrecord_assistant_codes_csv'
+
+function scopedKey(baseKey: string, businessCode: string | null): string {
+  if (!businessCode) return baseKey
+  return `ddworkrecord_business_${businessCode}_${baseKey}`
+}
 
 function safeRead(key: string): string {
   try {
@@ -159,11 +166,18 @@ function safeWrite(key: string, value: string) {
 }
 
 function SettingsForm() {
-  const [businessAddress, setBusinessAddress] = useState<string>(() => safeRead(LS_BUSINESS_ADDRESS))
-  const [employeeCodesCsv, setEmployeeCodesCsv] = useState<string>(() => safeRead(LS_EMPLOYEE_CODES))
-  const [vehicleCodesCsv, setVehicleCodesCsv] = useState<string>(() => safeRead(LS_VEHICLE_CODES))
-  const [jobCodesCsv, setJobCodesCsv] = useState<string>(() => safeRead(LS_JOB_CODES))
-  const [assistantCodesCsv, setAssistantCodesCsv] = useState<string>(() => safeRead(LS_ASSISTANT_CODES))
+  const businessCode = useMemo(() => {
+    const raw = safeRead(BUSINESS_CODE_LS_KEY).trim()
+    return raw.length ? raw : null
+  }, [])
+
+  const sk = (key: string) => scopedKey(key, businessCode)
+
+  const [businessAddress, setBusinessAddress] = useState<string>(() => safeRead(sk(LS_BUSINESS_ADDRESS)))
+  const [employeeCodesCsv, setEmployeeCodesCsv] = useState<string>(() => safeRead(sk(LS_EMPLOYEE_CODES)))
+  const [vehicleCodesCsv, setVehicleCodesCsv] = useState<string>(() => safeRead(sk(LS_VEHICLE_CODES)))
+  const [jobCodesCsv, setJobCodesCsv] = useState<string>(() => safeRead(sk(LS_JOB_CODES)))
+  const [assistantCodesCsv, setAssistantCodesCsv] = useState<string>(() => safeRead(sk(LS_ASSISTANT_CODES)))
 
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
@@ -285,11 +299,11 @@ function SettingsForm() {
           <button
             type="button"
             onClick={() => {
-              safeWrite(LS_BUSINESS_ADDRESS, businessAddress)
-              safeWrite(LS_EMPLOYEE_CODES, employeeCodesCsv)
-              safeWrite(LS_VEHICLE_CODES, vehicleCodesCsv)
-              safeWrite(LS_JOB_CODES, jobCodesCsv)
-              safeWrite(LS_ASSISTANT_CODES, assistantCodesCsv)
+              safeWrite(sk(LS_BUSINESS_ADDRESS), businessAddress)
+              safeWrite(sk(LS_EMPLOYEE_CODES), employeeCodesCsv)
+              safeWrite(sk(LS_VEHICLE_CODES), vehicleCodesCsv)
+              safeWrite(sk(LS_JOB_CODES), jobCodesCsv)
+              safeWrite(sk(LS_ASSISTANT_CODES), assistantCodesCsv)
               setSavedAt(Date.now())
             }}
             style={{
