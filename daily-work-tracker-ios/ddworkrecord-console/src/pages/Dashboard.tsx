@@ -195,7 +195,7 @@ export default function Dashboard() {
   }, [businessCode])
 
   const assistantRows = useMemo(() => {
-    if (!useTemplate) return null
+    if (!assistantCodes.length) return null
     const assistantCount = assistantCodes.length
     const assistantCodesList = assistantCodes
 
@@ -387,60 +387,40 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {useTemplate ? (
-                employeeRows.map((row) => {
-                  return (
-                    <tr key={row.employeeCode}>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            window.location.hash = `#employee/${row.employeeCode}`
-                          }}
-                          style={{
-                            display: 'inline-block',
-                            width: '100%',
-                            textAlign: 'left',
-                            padding: '6px 8px',
-                            border: '2px solid #0f172a',
-                            borderRadius: 10,
-                            background: '#fff',
-                            cursor: 'pointer',
-                            fontWeight: 1000,
-                            color: '#0f172a',
-                          }}
-                        >
-                          {row.employeeCode}
-                        </button>
-                      </td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.totalHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.normalHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.weekdayOvertimeHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.saturdayHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.sundayHours)}</td>
-                      <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
-                    </tr>
-                  )
-                })
-              ) : (
-                stats ? (
-                  <tr>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }}>Cloud Aggregate Summary</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(cloudTotals.totalHours)} hrs</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
-                  </tr>
-                ) : (
-                  <tr>
-                    <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#64748b', fontWeight: 800 }}>
-                      {loading ? 'Refreshing cloud metrics...' : 'No cloud data available. Log in and sync to begin.'}
+              {employeeRows.map((row) => {
+                return (
+                  <tr key={row.employeeCode}>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#employee/${row.employeeCode}`
+                        }}
+                        style={{
+                          display: 'inline-block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '6px 8px',
+                          border: '2px solid #0f172a',
+                          borderRadius: 10,
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontWeight: 1000,
+                          color: '#0f172a',
+                        }}
+                      >
+                        {row.employeeCode}
+                      </button>
                     </td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.totalHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.normalHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.weekdayOvertimeHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.saturdayHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.sundayHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
                   </tr>
                 )
-              )}
+              })}
             </tbody>
           </table>
         </div>
@@ -467,7 +447,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {useTemplate && assistantRows ? (
+              {assistantRows ? (
                 assistantRows.map((row) => (
                   <tr key={row.assistantCode}>
                     <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
