@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Period } from '../lib/api'
-import { fetchBusinessStats } from '../lib/businessApi'
+import { fetchBusinessStats, mintWorkerSecrets } from '../lib/businessApi'
 import { theme } from '../lib/theme'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewSummary } from '../lib/localPreviewData'
@@ -327,6 +327,146 @@ function SettingsForm() {
             </div>
           ) : null}
         </div>
+
+        <BusinessWorkerSecretsPanel employeeCodesCsv={employeeCodesCsv} />
+      </div>
+    </div>
+  )
+}
+
+function BusinessWorkerSecretsPanel({ employeeCodesCsv }: { employeeCodesCsv: string }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [secrets, setSecrets] = useState<{ employeeCode: string; workerSecret: string }[] | null>(null)
+
+  const employeeCodes = useMemo(() => {
+    return employeeCodesCsv
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean)
+  }, [employeeCodesCsv])
+
+  const generate = async () => {
+    setError(null)
+    setBusy(true)
+    setSecrets(null)
+
+    try {
+      if (employeeCodes.length === 0) {
+        setError('Add employee ID codes (CSV) first.')
+        return
+      }
+
+      const res = await mintWorkerSecrets(employeeCodes)
+      setSecrets(res.secrets)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to generate worker secrets.'
+      setError(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontWeight: 1100, fontSize: 18 }}>iOS Worker Secrets</div>
+      <div style={{ marginTop: 6, color: theme.muted, fontWeight: 900, fontSize: 12.5 }}>
+        Generate the Bearer worker secrets for each EMP code. You will copy/paste these into the iOS Login screen.
+      </div>
+
+      <div style={{ marginTop: 12, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, padding: 14, background: theme.surface }}>
+        {error ? (
+          <div style={{ marginBottom: 12, padding: 12, background: theme.errorBg, borderLeft: `4px solid ${theme.error}`, fontWeight: 950, borderRadius: theme.radiusSm, color: theme.text }}>
+            {error}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => void generate()}
+            disabled={busy}
+            style={{
+              padding: '12px 16px',
+              border: `2px solid ${theme.text}`,
+              background: theme.text,
+              color: '#fff',
+              cursor: busy ? 'not-allowed' : 'pointer',
+              fontWeight: 1100,
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {busy ? 'Generating…' : `Generate worker secrets (${employeeCodes.length})`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSecrets(null)
+              setError(null)
+            }}
+            style={{
+              padding: '12px 16px',
+              border: `2px solid ${theme.borderSoft}`,
+              background: theme.surface,
+              color: theme.text,
+              cursor: 'pointer',
+              fontWeight: 1100,
+              borderRadius: theme.radiusSm,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Clear
+          </button>
+        </div>
+
+        {secrets ? (
+          <div style={{ marginTop: 14, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, overflow: 'hidden', background: '#fff' }}>
+            <div style={{ padding: 10, fontWeight: 1100, color: theme.text, background: theme.pageBg, borderBottom: `2px solid ${theme.borderSoft}` }}>
+              Generated secrets
+            </div>
+
+            <div style={{ padding: 10, display: 'grid', gap: 10 }}>
+              {secrets.map((s) => (
+                <div key={s.employeeCode} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 240 }}>
+                    <div style={{ fontWeight: 1100, color: theme.text }}>{s.employeeCode}</div>
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: theme.muted2, fontWeight: 850, wordBreak: 'break-all' }}>
+                      {s.workerSecret}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(s.workerSecret)
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        border: `2px solid ${theme.text}`,
+                        background: theme.surface,
+                        color: theme.text,
+                        cursor: 'pointer',
+                        fontWeight: 1100,
+                        borderRadius: theme.radiusSm,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Copy token
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

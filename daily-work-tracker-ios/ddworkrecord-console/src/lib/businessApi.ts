@@ -81,3 +81,31 @@ export async function fetchBusinessStats(period: Period) {
 
   return (await res.json()) as BusinessStatsResponse
 }
+
+type MintWorkerSecretsResponse = {
+  secrets: {
+    employeeCode: string
+    workerSecret: string
+  }[]
+}
+
+export async function mintWorkerSecrets(employeeCodes: string[]) {
+  const res = await authedFetch('/api/v1/business/mint-worker-secrets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ employeeCodes }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`mint-worker-secrets failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`mint-worker-secrets failed: expected JSON but got ${contentType || 'unknown'}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  return (await res.json()) as MintWorkerSecretsResponse
+}
