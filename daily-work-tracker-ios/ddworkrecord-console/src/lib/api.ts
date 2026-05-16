@@ -50,12 +50,16 @@ function mockLiveLocations(): LiveLocation[] {
   ]
 }
 
-function getToken(): string | null {
-  return localStorage.getItem('ddworkrecord_admin_token')
+export function getAdminToken(): string | null {
+  try {
+    return localStorage.getItem('ddworkrecord_admin_token')
+  } catch {
+    return null
+  }
 }
 
 async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = getToken()
+  const token = getAdminToken()
   const headers = new Headers(init.headers)
 
   if (token) {

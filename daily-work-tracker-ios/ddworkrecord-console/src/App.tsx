@@ -72,6 +72,7 @@ function getRouteFromHash(): Route {
   if (h === 'reports') return 'reports'
   if (h === 'settings') return 'settings'
   if (h === 'admin') return 'admin'
+  if (h === 'login') return 'login'
   if (h === 'token-viewer') return 'token-viewer'
   if (h === 'dashboard') return 'dashboard'
   if (h === 'local-preview') return 'local-preview'

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchLiveLocations, fetchStats, type Period } from '../lib/api'
+import { fetchLiveLocations, fetchStats, getAdminToken, type Period } from '../lib/api'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
@@ -179,6 +179,15 @@ export default function Dashboard() {
 
   const refresh = async () => {
     setError(null)
+
+    // If we’re not in sandbox, require the admin bearer token.
+    if (!isLocalPreviewMode() && !getAdminToken()) {
+      setLoading(false)
+      setError('Admin token missing. Please log in.')
+      window.location.hash = '#login'
+      return
+    }
+
     setLoading(true)
     try {
       const s = await fetchStats(period)
