@@ -179,6 +179,48 @@ router.get('/debug', (_req: Request, res: Response) => {
   })
 })
 
+router.post('/mint-worker-secrets', authenticateBusinessCode, async (req: Request, res: Response) => {
+  const body = req.body as { employeeCodes?: string[] } | undefined
+  const raw = body?.employeeCodes ?? []
+
+  const tenantId = (req as any).authTenantId as string | null
+  if (!tenantId) return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return res.status(400).json({ error: 'employeeCodes must be a non-empty array.' })
+  }
+
+  const employeeCodes = raw
+    .map((c) => String(c ?? '').trim())
+    .filter((c) => c.length > 0)
+
+  if (employeeCodes.length === 0) {
+    return res.status(400).json({ error: 'employeeCodes must contain at least one non-empty string.' })
+  }
+
+  const minted = businessMemoryStore.mintWorkerSecrets(tenantId, employeeCodes)
+
+  // Firestore write (best-effort)
+  try {
+    const firestore = getFirestore()
+    for (const item of minted) {
+      await firestore.collection('worker_secrets').doc(item.workerSecret).set(
+        {
+          tenantId,
+          employeeCode: item.employeeCode,
+          role: 'worker',
+          createdAt: new Date().toISOString(),
+        },
+        { merge: true }
+      )
+    }
+  } catch (_e) {
+    // ignore if firestore not configured
+  }
+
+  return res.status(200).json({ secrets: minted })
+})
+
 router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res: Response) => {
   const rawPeriod = req.params.period
   const period = Array.isArray(rawPeriod) ? rawPeriod[0] : rawPeriod
