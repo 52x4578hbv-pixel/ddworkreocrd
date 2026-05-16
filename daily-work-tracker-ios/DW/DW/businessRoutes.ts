@@ -36,11 +36,22 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     const firestore = getFirestore()
     const doc = await firestore.collection('tenant_access_codes').doc(code).get()
     if (!doc.exists) {
+      // Fallback: code may have been minted via in-memory store (DB-less / partial config)
+      const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
+      if (tenantId) {
+        ;(req as any).authTenantId = tenantId
+        return next()
+      }
       return res.status(403).json({ error: 'Forbidden: Invalid access code.' })
     }
 
     const d = doc.data() as AccessCodeRecord
     if (!d?.tenantId) {
+      const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
+      if (tenantId) {
+        ;(req as any).authTenantId = tenantId
+        return next()
+      }
       return res.status(403).json({ error: 'Forbidden: access code missing tenantId.' })
     }
 
