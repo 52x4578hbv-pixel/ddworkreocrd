@@ -30,8 +30,8 @@ export default function BusinessLogin() {
       await fetchBusinessStats(period)
 
       setHasData(true)
-      // Business code login should land on the business overview, not the admin console.
-      window.location.hash = '#business-dashboard'
+      // Business code should land directly in the normal DD console dashboard.
+      window.location.hash = '#dashboard'
     } catch {
       setHasData(false)
       setError('Code not valid')

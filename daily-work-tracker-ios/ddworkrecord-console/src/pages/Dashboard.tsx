@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchLiveLocations, fetchStats, getAdminToken, type Period } from '../lib/api'
+import { fetchBusinessStats } from '../lib/businessApi'
 import { isLocalPreviewMode } from '../lib/localPreview'
 import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
@@ -59,6 +60,14 @@ function round2(n: number): number {
 
 function format2(n: number): string {
   return round2(n).toFixed(2)
+}
+
+function getBusinessCode(): string | null {
+  try {
+    return localStorage.getItem('ddworkrecord_business_code')
+  } catch {
+    return null
+  }
 }
 
 export default function Dashboard() {
@@ -180,19 +189,28 @@ export default function Dashboard() {
   const refresh = async () => {
     setError(null)
 
-    // If we’re not in sandbox, require the admin bearer token.
-    if (!isLocalPreviewMode() && !getAdminToken()) {
+    const adminToken = getAdminToken()
+    const businessCode = getBusinessCode()
+
+    // Live mode: allow either admin token (Firebase JWT) OR business access code.
+    if (!isLocalPreviewMode() && !adminToken && !businessCode) {
       setLoading(false)
-      setError('Admin token missing. Please log in.')
+      setError('Missing auth. Please log in (admin token or business code).')
       window.location.hash = '#login'
       return
     }
 
     setLoading(true)
     try {
-      const s = await fetchStats(period)
-      setStats(s)
-      await fetchLiveLocations().catch(() => undefined)
+      if (adminToken) {
+        const s = await fetchStats(period)
+        setStats(s)
+        await fetchLiveLocations().catch(() => undefined)
+      } else if (businessCode) {
+        const s = await fetchBusinessStats(period)
+        setStats(s as unknown as StatsResponse)
+        // Business stats flow does not currently support live location updates on this dashboard.
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error'
       setError(message)
@@ -236,6 +254,7 @@ export default function Dashboard() {
           <button
             onClick={() => {
               localStorage.removeItem('ddworkrecord_admin_token')
+              localStorage.removeItem('ddworkrecord_business_code')
               window.location.hash = '#login'
             }}
             style={{

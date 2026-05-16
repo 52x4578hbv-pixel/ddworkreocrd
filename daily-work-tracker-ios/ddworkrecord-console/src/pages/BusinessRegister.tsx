@@ -169,8 +169,8 @@ export default function BusinessRegister() {
 
             <button
               onClick={() => {
-                // Open business portal settings (does not require admin/Firebase token).
-                window.location.hash = '#business-dashboard?tab=settings'
+                // Send to the normal DD console (no separate business portal UI).
+                window.location.hash = '#dashboard'
               }}
               style={{
                 marginTop: 12,
