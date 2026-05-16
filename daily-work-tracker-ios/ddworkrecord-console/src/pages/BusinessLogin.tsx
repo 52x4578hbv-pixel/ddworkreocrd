@@ -23,10 +23,18 @@ export default function BusinessLogin() {
 
     setBusy(true)
     try {
-      // Save code first, then route.
-      // BusinessDashboard will load the stats and show any auth/error state there.
+      // Save code first so businessApi authedFetch can use it.
       localStorage.setItem('ddworkrecord_business_code', trimmed)
-      window.location.hash = '#business-dashboard'
+
+      // Validate code (401/403 => invalid)
+      await fetchBusinessStats(period)
+
+      setHasData(true)
+      // Per requirement: business login should land on the DD console dashboard.
+      window.location.hash = '#dashboard'
+    } catch {
+      setHasData(false)
+      setError('Code not valid')
     } finally {
       setBusy(false)
     }
