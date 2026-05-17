@@ -4,24 +4,21 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import AddDailyRecord from './pages/AddDailyRecord'
 import RecordsList from './pages/RecordsList'
-import Reports from './pages/Reports'
 import Settings from './pages/Settings'
-import AdminPanel from './pages/AdminPanel'
 import TokenViewer from './pages/TokenViewer'
 import LocalPreviewShell from './pages/LocalPreviewShell'
 import EmployeePage from './pages/EmployeePage'
 import RecordDetail from './pages/RecordDetail'
 import DummyLocalPreview from './pages/DummyLocalPreview'
-import JobsReports from './pages/JobsReports'
-import SupplierReports from './pages/SupplierReports'
-import JobsList from './pages/JobsList'
-import SupplierStopsList from './pages/SupplierStopsList'
+import JobsHub from './pages/JobsHub'
+import SuppliersHub from './pages/SuppliersHub'
 import FuelStopsList from './pages/FuelStopsList'
 import BusinessRegister from './pages/BusinessRegister'
 import BusinessLogin from './pages/BusinessLogin'
 import BusinessDashboard from './pages/BusinessDashboard'
 import Home from './pages/Home'
 import AssistantPage from './pages/AssistantPage'
+import AIAnalyzer from './pages/AIAnalyzer'
 
 // Routes are based on the URL hash (no React Router in this project)
 type Route =
@@ -30,21 +27,21 @@ type Route =
   | 'dashboard'
   | 'add'
   | 'records'
-  | 'reports'
   | 'settings'
-  | 'admin'
   | 'token-viewer'
   | 'local-preview'
   | 'dummy-local-preview'
-  | string // Allow dynamic sub-routes like employee/EMP-001
   | 'jobs'
-  | 'jobs-list'
-  | 'supplier-list'
+  | 'jobs-list' // legacy
+  | 'suppliers'
+  | 'supplier-list' // legacy
+  | 'supplier-reports' // legacy
   | 'fuel-list'
-  | 'supplier-reports'
+  | 'ai-analyzer'
   | 'business-register'
   | 'business-login'
   | 'business-dashboard'
+  | string // Allow dynamic sub-routes like employee/EMP-001
 
 function getRouteFromHash(): Route {
   const raw = window.location.hash.replace('#', '').replace(/^\//, '')
@@ -58,7 +55,6 @@ function getRouteFromHash(): Route {
     }
   }
 
-  const businessCode = safeGetItem('ddworkrecord_business_code')
   const adminToken = safeGetItem('ddworkrecord_admin_token')
 
   // Priority redirects when no hash is provided (public landing page)
@@ -69,22 +65,29 @@ function getRouteFromHash(): Route {
 
   if (h === 'add') return 'add'
   if (h === 'records') return 'records'
-  if (h === 'reports') return 'reports'
   if (h === 'settings') return 'settings'
-  if (h === 'admin') return 'admin'
+  if (h === 'admin') return 'settings' // removed tab; keep deep-link safe
+  if (h === 'reports') return 'jobs' // removed tab; keep deep-link safe
+
   if (h === 'login') return 'login'
   if (h === 'token-viewer') return 'token-viewer'
   if (h === 'dashboard') return 'dashboard'
   if (h === 'local-preview') return 'local-preview'
   if (h === 'dummy-local-preview') return 'dummy-local-preview'
+
+  if (h === 'jobs') return 'jobs'
+  if (h === 'jobs-list') return 'jobs'
+
+  if (h === 'supplier-list') return 'suppliers'
+  if (h === 'supplier-reports') return 'suppliers'
+  if (h === 'suppliers') return 'suppliers'
+
+  if (h === 'fuel-list') return 'fuel-list'
+  if (h === 'ai-analyzer') return 'ai-analyzer'
+
   if (h === 'business-register') return 'business-register'
   if (h === 'business-login') return 'business-login'
   if (h === 'business-dashboard') return 'business-dashboard'
-  if (h === 'jobs') return 'jobs'
-  if (h === 'jobs-list') return 'jobs-list'
-  if (h === 'supplier-list') return 'supplier-list'
-  if (h === 'fuel-list') return 'fuel-list'
-  if (h === 'supplier-reports') return 'supplier-reports'
 
   if (h.startsWith('employee/')) return h
   if (h.startsWith('assistant/')) return h
@@ -99,13 +102,15 @@ function Navigation({ current }: { current: Route }) {
     { label: 'Dashboard', r: 'dashboard', h: '#dashboard' },
     { label: 'Add Record', r: 'add', h: '#add' },
     { label: 'Records', r: 'records', h: '#records' },
-    { label: 'Reports', r: 'reports', h: '#reports' },
+
+    // Combined tabs
     { label: 'Jobs', r: 'jobs', h: '#jobs' },
-    { label: 'Jobs List', r: 'jobs-list', h: '#jobs-list' },
-    { label: 'Supplier Stops', r: 'supplier-list', h: '#supplier-list' },
+    { label: 'Suppliers', r: 'suppliers', h: '#suppliers' },
     { label: 'Fuel Stops', r: 'fuel-list', h: '#fuel-list' },
-    { label: 'Suppliers', r: 'supplier-reports', h: '#supplier-reports' },
-    { label: 'Admin', r: 'admin', h: '#admin' },
+
+    // New tab
+    { label: 'AI Analyzer', r: 'ai-analyzer', h: '#ai-analyzer' },
+
     { label: 'Settings', r: 'settings', h: '#settings' },
   ]
 
@@ -181,23 +186,27 @@ export default function App() {
     if (route === 'dashboard') return <Dashboard />
     if (route === 'add') return <AddDailyRecord />
     if (route === 'records') return <RecordsList />
-    if (route === 'reports') return <Reports />
     if (route === 'settings') return <Settings />
-    if (route === 'admin') return <AdminPanel />
     if (route === 'token-viewer') return <TokenViewer />
+
     if (route === 'local-preview') return <LocalPreviewShell />
     if (route === 'dummy-local-preview') return <DummyLocalPreview />
+
+    if (route === 'jobs' || route === 'jobs-list') return <JobsHub />
+    if (route === 'suppliers' || route === 'supplier-list' || route === 'supplier-reports') return <SuppliersHub />
+
+    if (route === 'fuel-list') return <FuelStopsList />
+
+    if (route === 'ai-analyzer') return <AIAnalyzer />
+
     if (route.startsWith('employee/')) return <EmployeePage />
     if (route.startsWith('assistant/')) return <AssistantPage />
     if (route.startsWith('record/')) return <RecordDetail />
-    if (route === 'jobs') return <JobsReports />
-    if (route === 'jobs-list') return <JobsList />
-    if (route === 'supplier-list') return <SupplierStopsList />
-    if (route === 'fuel-list') return <FuelStopsList />
-    if (route === 'supplier-reports') return <SupplierReports />
+
     if (route === 'business-register') return <BusinessRegister />
     if (route === 'business-login') return <BusinessLogin />
     if (route === 'business-dashboard') return <BusinessDashboard />
+
     if (route === 'home') return <Home />
     return <Login />
   }, [route])

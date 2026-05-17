@@ -23,6 +23,12 @@ jobs:
             exit 1
           fi
 
+      - name: Install & Build frontend (ddworkrecord-console)
+        working-directory: daily-work-tracker-ios/ddworkrecord-console
+        run: |
+          npm ci
+          npm run build
+
       - name: Build & Deploy
         uses: Azure/static-web-apps-deploy@v1
         env:
@@ -35,7 +41,7 @@ jobs:
           # Frontend app location inside this repo
           app_location: daily-work-tracker-ios/ddworkrecord-console
 
-          # Vite default output dir
+          # Vite output dir
           output_location: dist
 
           # Use the repo's existing SWA config (hash routing + CSP)

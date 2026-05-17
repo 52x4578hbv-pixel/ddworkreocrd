@@ -1,29 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import Dashboard from './Dashboard'
 import RecordsList from './RecordsList'
-import Reports from './Reports'
-import JobsReports from './JobsReports'
-import SupplierReports from './SupplierReports'
 import AddDailyRecord from './AddDailyRecord'
 import JobsList from './JobsList'
 import SupplierStopsList from './SupplierStopsList'
 import FuelStopsList from './FuelStopsList'
 import BusinessDashboard from './BusinessDashboard'
+import JobsHub from './JobsHub'
+import SuppliersHub from './SuppliersHub'
+import AIAnalyzer from './AIAnalyzer'
 import { ensureSeededLocalPreview, getDefaultEmployeeCount } from '../lib/localPreviewSeed'
 import { getLocalPreviewDraftCount, getLocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
 
-type Tab =
-  | 'dashboard'
-  | 'records'
-  | 'jobs'
-  | 'supplier'
-  | 'fuel'
-  | 'add'
-  | 'reports'
-  | 'jobs-reports'
-  | 'supplier-reports'
-  | 'business-dashboard'
+type Tab = 'dashboard' | 'records' | 'jobs' | 'supplier' | 'fuel' | 'add' | 'ai-analyzer' | 'business-dashboard'
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -34,16 +24,16 @@ function format2(n: number): string {
 }
 
 function getTabFromLocationHash(): Tab | null {
-  // Expected base route: #/local-preview
-  // Optional query in hash: #/local-preview?tab=fuel
   const h = window.location.hash || ''
   const idx = h.indexOf('?')
   if (idx === -1) return null
+
   const qs = h.slice(idx + 1)
   const params = new URLSearchParams(qs)
   const raw = params.get('tab')
   if (!raw) return null
-  const allowed: Tab[] = ['dashboard', 'records', 'jobs', 'supplier', 'fuel', 'add', 'reports', 'jobs-reports', 'supplier-reports', 'business-dashboard']
+
+  const allowed: Tab[] = ['dashboard', 'records', 'jobs', 'supplier', 'fuel', 'add', 'ai-analyzer', 'business-dashboard']
   return allowed.includes(raw as Tab) ? (raw as Tab) : null
 }
 
@@ -53,6 +43,7 @@ function getCountryFromLocationHash(): PreviewCountry | null {
   const h = window.location.hash || ''
   const idx = h.indexOf('?')
   if (idx === -1) return null
+
   const qs = h.slice(idx + 1)
   const params = new URLSearchParams(qs)
   const raw = params.get('country')
@@ -86,12 +77,10 @@ export default function LocalPreviewShell() {
 
   const [previewCountry, setPreviewCountry] = useState<PreviewCountry>(() => {
     try {
-      // Prefer explicit sandbox override
       const localRaw = localStorage.getItem(LOCAL_PREVIEW_COUNTRY_KEY)
       const local = normalizeCountry(localRaw)
       if (local) return local
 
-      // Fallback to globally registered business country
       const businessRaw = localStorage.getItem(BUSINESS_COUNTRY_KEY)
       const business = normalizeCountry(businessRaw)
       if (business) return business
@@ -109,13 +98,11 @@ export default function LocalPreviewShell() {
     } catch {
       // ignore
     }
-    // Force children to re-render breakdown numbers based on the selected country.
     setSeedVersion((v) => v + 1)
   }
 
   const LOCAL_DRAFTS_STORAGE_KEY = 'ddworkrecord_draft_queue_v1'
 
-  // Sync tab from URL hash (?tab=...)
   useEffect(() => {
     const applyFromHash = () => {
       const fromHash = getTabFromLocationHash()
@@ -126,18 +113,22 @@ export default function LocalPreviewShell() {
         applyPreviewCountry(countryFromHash)
       }
     }
+
     applyFromHash()
     window.addEventListener('hashchange', applyFromHash)
     return () => window.removeEventListener('hashchange', applyFromHash)
   }, [previewCountry])
 
-  // Seed once on mount so tab switching doesn't re-generate the dataset and lock the UI.
   useEffect(() => {
     try {
-      // Avoid stale/invalid drafts causing 0 totals.
       localStorage.removeItem(LOCAL_DRAFTS_STORAGE_KEY)
 
-      ensureSeededLocalPreview({ employeeCount: getDefaultEmployeeCount(), months: 3, workdaysPerMonth: 18 })
+      ensureSeededLocalPreview({
+        employeeCount: getDefaultEmployeeCount(),
+        months: 3,
+        workdaysPerMonth: 18,
+      })
+
       setSeedVersion((v) => v + 1)
       setSeedReady(true)
     } catch (e) {
@@ -151,14 +142,28 @@ export default function LocalPreviewShell() {
     if (tab === 'dashboard') return 'Dashboard'
     if (tab === 'records') return 'Records'
     if (tab === 'jobs') return 'Jobs'
-    if (tab === 'supplier') return 'Supplier'
+    if (tab === 'supplier') return 'Suppliers'
     if (tab === 'fuel') return 'Fuel'
     if (tab === 'add') return 'Add Record'
-  if (tab === 'jobs-reports') return 'Jobs Reports'
-  if (tab === 'supplier-reports') return 'Supplier Reports'
-  if (tab === 'business-dashboard') return 'Business Portal'
-  return 'Employee Reports'
+    if (tab === 'ai-analyzer') return 'AI Analyzer'
+    if (tab === 'business-dashboard') return 'Business Portal'
+    return ''
   }, [tab])
+
+  const tabs = useMemo(
+    () =>
+      [
+        { key: 'dashboard' as const, label: 'Dashboard' },
+        { key: 'records' as const, label: 'Records' },
+        { key: 'jobs' as const, label: 'Jobs' },
+        { key: 'supplier' as const, label: 'Suppliers' },
+        { key: 'fuel' as const, label: 'Fuel' },
+        { key: 'add' as const, label: 'Add New Record' },
+        { key: 'ai-analyzer' as const, label: 'AI Analyzer' },
+        { key: 'business-dashboard' as const, label: 'Business Portal' },
+      ] as const,
+    [],
+  )
 
   return (
     <div style={{ fontFamily: 'system-ui', background: theme.pageBg, minHeight: '100vh' }}>
@@ -182,20 +187,7 @@ export default function LocalPreviewShell() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {(
-              [
-                { key: 'dashboard', label: 'Dashboard' },
-                { key: 'records', label: 'Records' },
-                { key: 'jobs', label: 'Jobs' },
-                { key: 'supplier', label: 'Supplier' },
-                { key: 'fuel', label: 'Fuel' },
-                { key: 'add', label: 'Add New Record' },
-                { key: 'reports', label: 'Employee Reports' },
-                { key: 'jobs-reports', label: 'Jobs Reports' },
-                { key: 'supplier-reports', label: 'Supplier Reports' },
-                { key: 'business-dashboard', label: 'Business Portal' },
-              ] as const
-            ).map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -218,7 +210,18 @@ export default function LocalPreviewShell() {
           </div>
         </div>
 
-        <div style={{ marginTop: 10, color: '#64748b', fontWeight: 900, fontSize: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            marginTop: 10,
+            color: '#64748b',
+            fontWeight: 900,
+            fontSize: 12,
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
           <div>
             Current tab: {title}
             {seedReady ? (
@@ -276,13 +279,11 @@ export default function LocalPreviewShell() {
         <div style={{ padding: 0 }}>
           {tab === 'dashboard' ? <Dashboard key={seedVersion} /> : null}
           {tab === 'records' ? <RecordsList key={seedVersion} /> : null}
-          {tab === 'jobs' ? <JobsList key={seedVersion} /> : null}
-          {tab === 'supplier' ? <SupplierStopsList key={seedVersion} /> : null}
+          {tab === 'jobs' ? <JobsHub key={seedVersion} /> : null}
+          {tab === 'supplier' ? <SuppliersHub key={seedVersion} /> : null}
           {tab === 'fuel' ? <FuelStopsList key={seedVersion} /> : null}
           {tab === 'add' ? <AddDailyRecord key={seedVersion} /> : null}
-          {tab === 'reports' ? <Reports key={seedVersion} /> : null}
-          {tab === 'jobs-reports' ? <JobsReports key={seedVersion} /> : null}
-          {tab === 'supplier-reports' ? <SupplierReports key={seedVersion} /> : null}
+          {tab === 'ai-analyzer' ? <AIAnalyzer key={seedVersion} /> : null}
           {tab === 'business-dashboard' ? <BusinessDashboard key={seedVersion} /> : null}
         </div>
       ) : (
