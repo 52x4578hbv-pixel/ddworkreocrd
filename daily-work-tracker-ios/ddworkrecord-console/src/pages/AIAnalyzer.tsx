@@ -3,8 +3,9 @@ import type { LocalPreviewWorkday, SupplierStop } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
 import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
+import { buildAiResearchReport } from '../lib/aiAnalyzerReport'
 
-type Focus = 'overview' | 'jobs' | 'expenses'
+type Focus = 'report' | 'jobs' | 'expenses'
 
 function includesCI(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase())
@@ -31,8 +32,15 @@ function getTopSupplier(stops: SupplierStop[]): { supplierName: string; amountSp
   return best
 }
 
+function safeNumberOrNull(raw: string): number | null {
+  const t = raw.trim()
+  if (!t) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
 export default function AIAnalyzer() {
-  const [focus, setFocus] = useState<Focus>('overview')
+  const [focus, setFocus] = useState<Focus>('report')
 
   const EMPLOYEE_COUNT = getDefaultEmployeeCount()
   const employeeCodes = useMemo(() => getEmployeeCodes(EMPLOYEE_COUNT), [EMPLOYEE_COUNT])
@@ -43,12 +51,13 @@ export default function AIAnalyzer() {
   const [minHours, setMinHours] = useState<string>('') // numeric input
 
   const workdays = useMemo(() => getLocalPreviewWorkdays(), [])
+  const minHoursNum = useMemo(() => safeNumberOrNull(minHours), [minHours])
+
   const filtered = useMemo(() => {
     const qJob = jobIdSearch.trim()
     const qSupplier = supplierSearch.trim()
-    const minHoursNum = minHours.trim() ? Number(minHours.trim()) : null
 
-    return workdays.filter((w) => {
+    return workdays.filter((w: LocalPreviewWorkday) => {
       if (selectedEmployee !== 'all' && w.employeeCode !== selectedEmployee) return false
       if (qJob && !includesCI(w.jobIdNumber, qJob)) return false
       if (minHoursNum !== null && Number.isFinite(minHoursNum) && w.totalHours < minHoursNum) return false
@@ -60,7 +69,7 @@ export default function AIAnalyzer() {
 
       return true
     })
-  }, [workdays, selectedEmployee, jobIdSearch, supplierSearch, minHours])
+  }, [workdays, selectedEmployee, jobIdSearch, supplierSearch, minHoursNum])
 
   const insights = useMemo(() => {
     const totalHours = sum(filtered.map((w) => (Number.isFinite(w.totalHours) ? w.totalHours : 0)))
@@ -86,8 +95,8 @@ export default function AIAnalyzer() {
       fuelCost,
       supplierSpend,
       topSupplier,
-      busiestDay,
-      highestFuelDay,
+      busiestDay: busiestDay ? { date: busiestDay.date, totalHours: busiestDay.totalHours } : null,
+      highestFuelDay: highestFuelDay ? { date: highestFuelDay.date, fuelCost: highestFuelDay.fuelCost } : null,
       jobsCompleteHours,
       jobsReturnRequiredHours,
     }
@@ -106,7 +115,9 @@ export default function AIAnalyzer() {
 
     const rows = [...map.entries()].map(([jobIdNumber, v]) => ({
       jobIdNumber,
-      ...v,
+      completeHours: v.completeHours,
+      returnHours: v.returnHours,
+      count: v.count,
       totalHours: v.completeHours + v.returnHours,
     }))
 
@@ -114,18 +125,48 @@ export default function AIAnalyzer() {
     return rows.slice(0, 12)
   }, [filtered])
 
+  const reportText = useMemo(() => {
+    return buildAiResearchReport({
+      filtered,
+      insights,
+      jobBreakdown,
+      selectedEmployee,
+      jobIdSearch,
+      supplierSearch,
+      minHours: minHoursNum,
+    })
+  }, [filtered, insights, jobBreakdown, selectedEmployee, jobIdSearch, supplierSearch, minHoursNum])
+
+  const reportTitle = useMemo(() => {
+    const parts: string[] = []
+    if (selectedEmployee !== 'all') parts.push(`Employee ${selectedEmployee}`)
+    if (jobIdSearch.trim()) parts.push(`Job “${jobIdSearch.trim()}”`)
+    if (supplierSearch.trim()) parts.push(`Supplier “${supplierSearch.trim()}”`)
+    if (minHoursNum !== null) parts.push(`Min ${minHoursNum}h`)
+    return parts.length ? `Research report (${parts.join(', ')})` : 'Research report (current filters)'
+  }, [selectedEmployee, jobIdSearch, supplierSearch, minHoursNum])
+
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 1020, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
+    <div
+      style={{
+        fontFamily: 'system-ui',
+        padding: 24,
+        maxWidth: 1020,
+        margin: '0 auto',
+        background: theme.pageBg,
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0, color: theme.text }}>AI Analyzer</h1>
           <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850, fontSize: 12 }}>
-            Deterministic “AI-style” insights over the local preview dataset (with filters).
+            “Research + improvement report” over the local preview dataset (with filters).
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {(['overview', 'jobs', 'expenses'] as const).map((f) => (
+          {(['report', 'jobs', 'expenses'] as const).map((f) => (
             <button
               key={f}
               type="button"
@@ -142,7 +183,7 @@ export default function AIAnalyzer() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {f === 'overview' ? 'Overview' : f === 'jobs' ? 'Jobs' : 'Expenses'}
+              {f === 'report' ? 'Research report' : f === 'jobs' ? 'Jobs insights' : 'Expense highlights'}
             </button>
           ))}
         </div>
@@ -248,7 +289,15 @@ export default function AIAnalyzer() {
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ marginTop: 10, padding: 12, border: `2px dashed ${theme.text}`, borderRadius: theme.radiusSm, fontWeight: 1000 }}>
+          <div
+            style={{
+              marginTop: 10,
+              padding: 12,
+              border: `2px dashed ${theme.text}`,
+              borderRadius: theme.radiusSm,
+              fontWeight: 1000,
+            }}
+          >
             No workdays match these filters.
           </div>
         ) : null}
@@ -280,20 +329,31 @@ export default function AIAnalyzer() {
           </div>
         ) : null}
 
-        {filtered.length > 0 && focus === 'overview' ? (
+        {filtered.length > 0 && focus === 'report' ? (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontWeight: 1100, color: theme.text }}>Insights</div>
-            <ul style={{ margin: '10px 0 0 18px', color: theme.text, fontWeight: 900, lineHeight: 1.5 }}>
-              <li>
-                Busiest day: <b>{insights.busiestDay ? insights.busiestDay.date : '—'}</b> ({format2(insights.busiestDay ? insights.busiestDay.totalHours : 0)} hours)
-              </li>
-              <li>
-                Highest fuel day: <b>{insights.highestFuelDay ? insights.highestFuelDay.date : '—'}</b> ({format2(insights.highestFuelDay ? insights.highestFuelDay.fuelCost : 0)} fuel cost)
-              </li>
-              <li>
-                Jobs split (hours): Complete {format2(insights.jobsCompleteHours)} • Return-required {format2(insights.jobsReturnRequiredHours)}
-              </li>
-            </ul>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+              <div style={{ fontWeight: 1100, color: theme.text }}>{reportTitle}</div>
+              <div style={{ color: theme.muted2, fontWeight: 950, fontSize: 12 }}>Regenerates automatically with filters</div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                background: '#0b1220',
+                color: '#e5e7eb',
+                padding: 14,
+                borderRadius: theme.radiusMd,
+                border: `1px solid ${theme.borderSoft}`,
+                fontSize: 12,
+                lineHeight: 1.5,
+                maxHeight: 560,
+                overflow: 'auto',
+              }}
+            >
+              {reportText}
+            </div>
           </div>
         ) : null}
 
