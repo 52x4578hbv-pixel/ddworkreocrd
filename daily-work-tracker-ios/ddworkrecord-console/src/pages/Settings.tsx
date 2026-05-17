@@ -396,7 +396,14 @@ export default function Settings() {
       }
 
       const res = await mintWorkerSecrets(codes)
-      setWorkerSecrets(res.secrets)
+      const secrets = res.secrets
+
+      const unique = Array.from(new Set(secrets.map((s) => s.workerSecret)))
+      if (unique.length === 1) {
+        setWorkerSecrets([{ employeeCode: 'SHARED (all employees)', workerSecret: unique[0] }])
+      } else {
+        setWorkerSecrets(secrets)
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to generate worker secrets.'
       setWorkerSecretsError(message)

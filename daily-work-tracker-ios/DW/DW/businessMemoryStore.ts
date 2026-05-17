@@ -19,8 +19,12 @@ export type WorkerSecretRecord = {
 const tenantById = new Map<string, BusinessTenant>()
 const accessCodeToTenantId = new Map<string, string>()
 
+// worker secret -> tenant/worker mapping
 const workerSecretToRecord = new Map<string, WorkerSecretRecord>()
+// tenant+employee -> worker secret mapping (fast lookup / backwards compat)
 const tenantEmployeeToWorkerSecret = new Map<string, string>()
+// tenant -> shared worker secret (all employees in a business can use the same token)
+const tenantIdToSharedWorkerSecret = new Map<string, string>()
 
 function generateTenantId() {
   // stable enough for doc-like ids
@@ -91,26 +95,49 @@ export const businessMemoryStore = {
   mintWorkerSecrets: (tenantId: string, employeeCodes: string[]) => {
     const results: { employeeCode: string; workerSecret: string }[] = []
 
-    for (const rawCode of employeeCodes) {
-      const employeeCode = normalizeEmployeeCode(rawCode)
-      if (!employeeCode) continue
+    const normalizedCodes = employeeCodes.map(normalizeEmployeeCode).filter((c) => c.length > 0)
+    if (normalizedCodes.length === 0) return results
 
+    // Create (or reuse) a single shared worker secret per tenant.
+    // Important: the worker-secret auth enforcement in syncRoutes.ts checks
+    // `authEmployeeCode && authEmployeeCode !== validatedData.employeeId`.
+    // By storing `employeeCode: ''` for the shared token, authEmployeeCode becomes falsy
+    // and the server will accept records for any employeeId.
+    let sharedSecret = tenantIdToSharedWorkerSecret.get(tenantId) ?? null
+
+    if (!sharedSecret) {
+      // If all provided employee codes already map to the same secret, reuse it.
+      let candidate: string | null = null
+      let mismatch = false
+
+      for (const employeeCode of normalizedCodes) {
+        const key = tenantEmployeeKey(tenantId, employeeCode)
+        const existing = tenantEmployeeToWorkerSecret.get(key)
+        if (!existing) continue
+        if (candidate === null) candidate = existing
+        else if (existing !== candidate) mismatch = true
+      }
+
+      if (candidate && !mismatch) {
+        sharedSecret = candidate
+      } else {
+        // Generate a new unique secret (avoid collisions)
+        let secret = generateWorkerSecret()
+        while (workerSecretToRecord.has(secret)) {
+          secret = generateWorkerSecret()
+        }
+        sharedSecret = secret
+      }
+
+      tenantIdToSharedWorkerSecret.set(tenantId, sharedSecret)
+      workerSecretToRecord.set(sharedSecret, { tenantId, employeeCode: '', role: 'worker' })
+    }
+
+    // Map every employee code to the shared secret
+    for (const employeeCode of normalizedCodes) {
       const key = tenantEmployeeKey(tenantId, employeeCode)
-      const existing = tenantEmployeeToWorkerSecret.get(key)
-      if (existing) {
-        results.push({ employeeCode, workerSecret: existing })
-        continue
-      }
-
-      // generate a new secret (avoid collisions)
-      let secret = generateWorkerSecret()
-      while (workerSecretToRecord.has(secret)) {
-        secret = generateWorkerSecret()
-      }
-
-      tenantEmployeeToWorkerSecret.set(key, secret)
-      workerSecretToRecord.set(secret, { tenantId, employeeCode, role: 'worker' })
-      results.push({ employeeCode, workerSecret: secret })
+      tenantEmployeeToWorkerSecret.set(key, sharedSecret)
+      results.push({ employeeCode, workerSecret: sharedSecret })
     }
 
     return results
@@ -125,5 +152,6 @@ export const businessMemoryStore = {
     accessCodeToTenantId.clear()
     workerSecretToRecord.clear()
     tenantEmployeeToWorkerSecret.clear()
+    tenantIdToSharedWorkerSecret.clear()
   },
 }

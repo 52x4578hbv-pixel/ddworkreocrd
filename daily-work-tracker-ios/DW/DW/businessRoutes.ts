@@ -231,11 +231,16 @@ router.post('/mint-worker-secrets', authenticateBusinessCode, async (req: Reques
   // Firestore write (best-effort): store by workerSecret so auth can lookup quickly.
   try {
     const firestore = getFirestore()
+    const sharedSecret = minted[0]?.workerSecret ?? null
+    const isShared = sharedSecret ? minted.every((m) => m.workerSecret === sharedSecret) : false
+
     for (const item of minted) {
       await firestore.collection('worker_secrets').doc(item.workerSecret).set(
         {
           tenantId,
-          employeeCode: item.employeeCode,
+          // If this tenant uses a shared worker secret for all employees,
+          // make the worker secret token employee-agnostic by storing empty employeeCode.
+          employeeCode: isShared ? '' : item.employeeCode,
           role: 'worker',
           createdAt: new Date().toISOString(),
         },

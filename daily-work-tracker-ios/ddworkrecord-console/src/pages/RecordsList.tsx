@@ -44,8 +44,23 @@ export default function RecordsList() {
   }, [isLocal, liveWorkdays])
 
   const filteredWorkdays = useMemo(() => {
-    if (selectedEmployee === 'all') return workdays
-    return workdays.filter((w) => w.employeeCode === selectedEmployee)
+    const getEmployeeCode = (w: LocalPreviewWorkday): string => {
+      const anyW = w as unknown as { employeeCode?: unknown; employeeId?: unknown }
+      const raw = anyW.employeeCode ?? anyW.employeeId
+      return String(raw ?? '').trim()
+    }
+
+    const base = selectedEmployee === 'all' ? workdays : workdays.filter((w) => getEmployeeCode(w) === selectedEmployee)
+
+    // Sort by employee id/code asc, then date desc
+    return base
+      .slice()
+      .sort((a, b) => {
+        const ea = getEmployeeCode(a)
+        const eb = getEmployeeCode(b)
+        if (ea === eb) return b.date.localeCompare(a.date)
+        return ea.localeCompare(eb)
+      })
   }, [selectedEmployee, workdays])
 
   return (
