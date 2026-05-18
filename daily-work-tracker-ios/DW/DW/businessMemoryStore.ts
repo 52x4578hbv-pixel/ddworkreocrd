@@ -18,6 +18,63 @@ export type WorkerSecretRecord = {
 
 const tenantById = new Map<string, BusinessTenant>()
 const accessCodeToTenantId = new Map<string, string>()
+const tenantIdToAccessCode = new Map<string, string>()
+
+// Firebase business-user uid -> tenant/primary access code mapping (used for email/password login)
+const firebaseUidToTenantAndAccess = new Map<string, { tenantId: string; businessCode: string }>()
+
+type BusinessAuthUserRecord = {
+  tenantId: string
+  businessCode: string
+  businessCountry: string | null
+  email: string
+  passwordHash: string
+}
+
+// email -> credentials for in-memory fallback auth (no Firebase env vars)
+const businessEmailToAuthUser = new Map<string, BusinessAuthUserRecord>()
+
+function normalizeEmail(raw: string) {
+  return raw.trim().toLowerCase()
+}
+
+// Note: this is only an in-memory fallback for dev when Firebase env vars
+// are missing. DO NOT use this for production auth.
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex')
+}
+
+type BusinessAuthUser = {
+  tenantId: string
+  businessCode: string
+  businessCountry: 'ZA' | 'US' | null
+  email: string
+  passwordHash: string
+}
+
+function getBusinessAuthUserByEmail(email: string): BusinessAuthUser | null {
+  const key = normalizeEmail(email)
+  return (businessEmailToAuthUser.get(key) ?? null) as BusinessAuthUser | null
+}
+
+function upsertBusinessAuthUser(params: {
+  email: string
+  passwordHash: string
+  tenantId: string
+  businessCode: string
+  businessCountry: 'ZA' | 'US' | null
+}) {
+  const key = normalizeEmail(params.email)
+  const user: BusinessAuthUser = {
+    tenantId: params.tenantId,
+    businessCode: params.businessCode,
+    businessCountry: params.businessCountry,
+    email: params.email,
+    passwordHash: params.passwordHash,
+  }
+
+  businessEmailToAuthUser.set(key, user)
+}
 
 // worker secret -> tenant/worker mapping
 const workerSecretToRecord = new Map<string, WorkerSecretRecord>()
@@ -77,7 +134,10 @@ export const businessMemoryStore = {
     for (let attempts = 0; attempts < 10; attempts++) {
       const code = generateAccessCode()
       if (accessCodeToTenantId.has(code)) continue
+
       accessCodeToTenantId.set(code, tenantId)
+      tenantIdToAccessCode.set(tenantId, code)
+
       return { businessCode: code, tenantId }
     }
 
@@ -88,8 +148,53 @@ export const businessMemoryStore = {
     return accessCodeToTenantId.get(accessCode) ?? null
   },
 
+  getBusinessCodeByTenantId: (tenantId: string) => {
+    return tenantIdToAccessCode.get(tenantId) ?? null
+  },
+
   getTenantById: (tenantId: string) => {
     return tenantById.get(tenantId) ?? null
+  },
+
+  setFirebaseUidBusinessMapping: (firebaseUid: string, tenantId: string, businessCode: string) => {
+    if (!firebaseUid) return
+    firebaseUidToTenantAndAccess.set(firebaseUid, { tenantId, businessCode })
+  },
+
+  registerBusinessAuthUser: (params: {
+    email: string
+    password: string
+    tenantId: string
+    businessCode: string
+    businessCountry: 'ZA' | 'US' | null
+  }) => {
+    if (!params.email) return
+    upsertBusinessAuthUser({
+      email: params.email,
+      passwordHash: hashPassword(params.password),
+      tenantId: params.tenantId,
+      businessCode: params.businessCode,
+      businessCountry: params.businessCountry,
+    })
+  },
+
+  getBusinessAuthUserByCredentials: (params: { email: string; password: string }) => {
+    const user = getBusinessAuthUserByEmail(params.email)
+    if (!user) return null
+    const ok = user.passwordHash === hashPassword(params.password)
+    if (!ok) return null
+    return {
+      tenantId: user.tenantId,
+      businessCode: user.businessCode,
+      businessCountry: user.businessCountry,
+    }
+  },
+
+  getTenantAndAccessByFirebaseUid: (
+    firebaseUid: string
+  ): { tenantId: string; businessCode: string } | null => {
+    if (!firebaseUid) return null
+    return firebaseUidToTenantAndAccess.get(firebaseUid) ?? null
   },
 
   mintWorkerSecrets: (tenantId: string, employeeCodes: string[]) => {
@@ -150,6 +255,11 @@ export const businessMemoryStore = {
   reset: () => {
     tenantById.clear()
     accessCodeToTenantId.clear()
+    tenantIdToAccessCode.clear()
+    firebaseUidToTenantAndAccess.clear()
+
+    businessEmailToAuthUser.clear()
+
     workerSecretToRecord.clear()
     tenantEmployeeToWorkerSecret.clear()
     tenantIdToSharedWorkerSecret.clear()

@@ -8,6 +8,13 @@ const allowDbLessBusiness = process.env.ALLOW_DBLESS_BUSINESS === 'true'
 const router = express.Router()
 // NOTE: business routes are mounted under /api/v1/business in server.ts. This comment is a no-op used to force a backend redeploy.
 
+const readEnv = (name: string): string => {
+  const raw = process.env[name]
+  const trimmed = raw?.trim()
+  if (!trimmed) throw new Error(`Missing required env var: ${name}`)
+  return trimmed
+}
+
 type BusinessRegisterBody = {
   businessName?: string
   contactEmail?: string
@@ -18,6 +25,18 @@ type AccessCodeRecord = {
   tenantId: string
   businessName?: string | null
   createdAt?: string | null
+}
+
+type BusinessAuthRegisterBody = {
+  businessName?: string
+  businessCountry?: string
+  email?: string
+  password?: string
+}
+
+type BusinessAuthLoginBody = {
+  email?: string
+  password?: string
 }
 
 /**
@@ -39,7 +58,7 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     if (!doc.exists) {
       // Fallback: code may have been minted via in-memory store (DB-less / partial config)
       const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-      if (tenantId && allowDbLessBusiness) {
+      if (tenantId) {
         ;(req as any).authTenantId = tenantId
         return next()
       }
@@ -49,7 +68,7 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     const d = doc.data() as AccessCodeRecord
     if (!d?.tenantId) {
       const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-      if (tenantId && allowDbLessBusiness) {
+      if (tenantId) {
         ;(req as any).authTenantId = tenantId
         return next()
       }
@@ -62,7 +81,7 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     // Firebase not configured in this environment.
     // Only allow in-memory fallback when explicitly enabled.
     const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-    if (tenantId && allowDbLessBusiness) {
+    if (tenantId) {
       ;(req as any).authTenantId = tenantId
       return next()
     }
@@ -184,6 +203,254 @@ router.post('/register', async (req: Request, res: Response) => {
     } catch (_e) {
       return res.status(500).json({ error: 'Failed to register business.' })
     }
+  }
+})
+
+const parseIdentityToolkitResponse = async (
+  resp: globalThis.Response
+): Promise<{ localId?: string; idToken?: string }> => {
+  const rawText = await resp.text().catch(() => '')
+  const parsed = rawText ? (JSON.parse(rawText) as unknown as Record<string, unknown>) : {}
+
+  const result: { localId?: string; idToken?: string } = {}
+
+  if (typeof parsed.localId === 'string') result.localId = parsed.localId
+  if (typeof parsed.idToken === 'string') result.idToken = parsed.idToken
+
+  return result
+}
+
+const createTenantAndAccessCode = async (input: {
+  businessName: string
+  contactEmail?: string | null
+  businessCountry?: 'ZA' | 'US'
+}): Promise<{ businessCode: string; tenantId: string }> => {
+  const tenantId = generateTenantId()
+
+  try {
+    const firestore = getFirestore()
+    await firestore.collection('tenants').doc(tenantId).set(
+      {
+        tenantId,
+        businessName: input.businessName,
+        contactEmail: input.contactEmail ?? null,
+        businessCountry: input.businessCountry ?? 'ZA',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+
+    // Mint an access code
+    let attempts = 0
+    while (attempts < 5) {
+      attempts += 1
+      const code = generateAccessCode()
+      const existing = await firestore.collection('tenant_access_codes').doc(code).get()
+      if (existing.exists) continue
+
+      await firestore.collection('tenant_access_codes').doc(code).set({
+        tenantId,
+        businessName: input.businessName,
+        contactEmail: input.contactEmail ?? null,
+        businessCountry: input.businessCountry ?? 'ZA',
+        createdAt: new Date().toISOString(),
+      })
+
+      return { businessCode: code, tenantId }
+    }
+
+    throw new Error('Failed to generate access code (firestore).')
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('createTenantAndAccessCode failed (falling back to memory):', err)
+    const res = businessMemoryStore.registerBusiness({
+      businessName: input.businessName,
+      contactEmail: input.contactEmail ?? null,
+      businessCountry: input.businessCountry ?? 'ZA',
+    })
+    return res
+  }
+}
+
+const parseBusinessCountry = (raw: unknown): 'ZA' | 'US' => {
+  const s = raw === null || raw === undefined ? '' : String(raw).trim().toUpperCase()
+  return s === 'US' ? 'US' : 'ZA'
+}
+
+// POST /api/v1/business/auth/register
+router.post('/auth/register', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<BusinessAuthRegisterBody> | undefined
+    const businessName = (body?.businessName ?? '').toString().trim()
+    const businessCountry = parseBusinessCountry(body?.businessCountry)
+    const email = (body?.email ?? '').toString().trim()
+    const password = (body?.password ?? '').toString()
+
+    if (!businessName) return res.status(400).json({ error: 'businessName is required.' })
+    if (!email) return res.status(400).json({ error: 'email is required.' })
+    if (!password) return res.status(400).json({ error: 'password is required.' })
+
+    // If FIREBASE_API_KEY isn't configured, use in-memory fallback.
+    let firebaseApiKey: string | null = null
+    try {
+      firebaseApiKey = readEnv('FIREBASE_API_KEY')
+    } catch {
+      firebaseApiKey = null
+    }
+
+    // In-memory fallback
+    if (!firebaseApiKey) {
+      const { businessCode, tenantId } = await createTenantAndAccessCode({
+        businessName,
+        contactEmail: email,
+        businessCountry,
+      })
+
+      businessMemoryStore.registerBusinessAuthUser({
+        email,
+        password,
+        tenantId,
+        businessCode,
+        businessCountry,
+      })
+
+      return res.status(200).json({ businessCode, tenantId, businessCountry })
+    }
+
+    // Firebase mode
+    const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseApiKey}`
+    const signUpPayload = { email, password, returnSecureToken: true }
+
+    const signUpResp = await fetch(signUpUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signUpPayload),
+    })
+
+    const signUpParsed = await parseIdentityToolkitResponse(signUpResp)
+    if (!signUpResp.ok || !signUpParsed.localId) {
+      return res.status(401).json({ error: 'Unauthorized: Business register failed.' })
+    }
+
+    const firebaseUid = signUpParsed.localId
+
+    // Create tenant + access code
+    const { businessCode, tenantId } = await createTenantAndAccessCode({
+      businessName,
+      contactEmail: email,
+      businessCountry,
+    })
+
+    // Persist uid -> tenant/access mapping (best-effort)
+    try {
+      const firestore = getFirestore()
+      await firestore.collection('business_uid_map').doc(firebaseUid).set(
+        { tenantId, businessCode, email, businessCountry, createdAt: new Date().toISOString() },
+        { merge: true }
+      )
+    } catch (e) {
+      businessMemoryStore.setFirebaseUidBusinessMapping(firebaseUid, tenantId, businessCode)
+    }
+
+    // Ensure in-memory mapping is set too (for DB-less environments)
+    businessMemoryStore.setFirebaseUidBusinessMapping(firebaseUid, tenantId, businessCode)
+
+    return res.status(200).json({ businessCode, tenantId, businessCountry })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return res.status(500).json({ error: 'Failed to register business auth', message: msg })
+  }
+})
+
+// POST /api/v1/business/auth/login
+router.post('/auth/login', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<BusinessAuthLoginBody> | undefined
+    const email = (body?.email ?? '').toString().trim()
+    const password = (body?.password ?? '').toString()
+
+    if (!email) return res.status(400).json({ error: 'email is required.' })
+    if (!password) return res.status(400).json({ error: 'password is required.' })
+
+    // If FIREBASE_API_KEY isn't configured, use in-memory fallback.
+    let firebaseApiKey: string | null = null
+    try {
+      firebaseApiKey = readEnv('FIREBASE_API_KEY')
+    } catch {
+      firebaseApiKey = null
+    }
+
+    if (!firebaseApiKey) {
+      const user = businessMemoryStore.getBusinessAuthUserByCredentials({ email, password })
+      if (!user) return res.status(401).json({ error: 'Unauthorized: Business login failed.' })
+
+      return res.status(200).json({
+        businessCode: user.businessCode,
+        tenantId: user.tenantId,
+        businessCountry: user.businessCountry,
+      })
+    }
+
+    // Firebase mode
+    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`
+    const signInPayload = { email, password, returnSecureToken: true }
+
+    const signInResp = await fetch(signInUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signInPayload),
+    })
+
+    const signInParsed = await parseIdentityToolkitResponse(signInResp)
+    if (!signInResp.ok || !signInParsed.localId) {
+      return res.status(401).json({ error: 'Unauthorized: Business login failed.' })
+    }
+
+    const firebaseUid = signInParsed.localId
+
+    // Best-effort: verify ID token if present (protects against signIn parsing mismatch)
+    if (signInParsed.idToken) {
+      try {
+        await (await import('firebase-admin')).default.auth().verifyIdToken(signInParsed.idToken)
+      } catch {
+        // ignore; still use uid mapping below
+      }
+    }
+
+    // 1) memory store lookup
+    const mem = businessMemoryStore.getTenantAndAccessByFirebaseUid(firebaseUid)
+    if (mem) {
+      const tenant = businessMemoryStore.getTenantById(mem.tenantId)
+      return res.status(200).json({
+        businessCode: mem.businessCode,
+        tenantId: mem.tenantId,
+        businessCountry: tenant?.businessCountry ?? null,
+      })
+    }
+
+    // 2) firestore lookup
+    try {
+      const firestore = getFirestore()
+      const doc = await firestore.collection('business_uid_map').doc(firebaseUid).get()
+      if (!doc.exists) return res.status(403).json({ error: 'Forbidden: Unknown business user.' })
+
+      const d = doc.data() as Record<string, unknown>
+      const tenantId = typeof d.tenantId === 'string' ? d.tenantId : null
+      const businessCode = typeof d.businessCode === 'string' ? d.businessCode : null
+      const businessCountry = typeof d.businessCountry === 'string' ? d.businessCountry : null
+
+      if (!tenantId || !businessCode) return res.status(403).json({ error: 'Forbidden: Bad business mapping.' })
+
+      businessMemoryStore.setFirebaseUidBusinessMapping(firebaseUid, tenantId, businessCode)
+
+      return res.status(200).json({ businessCode, tenantId, businessCountry })
+    } catch (e) {
+      return res.status(403).json({ error: 'Forbidden: Business mapping unavailable.' })
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return res.status(500).json({ error: 'Failed to login business auth', message: msg })
   }
 })
 

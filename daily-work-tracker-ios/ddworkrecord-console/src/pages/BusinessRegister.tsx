@@ -1,50 +1,70 @@
 import { useState } from 'react'
-import { registerBusiness } from '../lib/businessApi'
+import { registerBusinessAuth } from '../lib/businessApi'
 import { theme } from '../lib/theme'
+
+type BusinessCountry = 'ZA' | 'US'
+
+type AuthStatus = 'idle' | 'loading' | 'error' | 'success'
 
 export default function BusinessRegister() {
   const [businessName, setBusinessName] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
+  const [businessCountry, setBusinessCountry] = useState<BusinessCountry>('ZA')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  type BusinessCountry = 'ZA' | 'US'
-  const [businessCountry, setBusinessCountry] = useState<BusinessCountry>('ZA')
+  const [status, setStatus] = useState<AuthStatus>('idle')
 
   const [businessCode, setBusinessCode] = useState<string | null>(null)
 
   const submit = async () => {
     setError(null)
     setBusinessCode(null)
+    setStatus('loading')
 
     const name = businessName.trim()
-    const email = contactEmail.trim()
+    const trimmedEmail = email.trim()
 
     if (!name) {
+      setStatus('error')
       setError('Business name is required.')
       return
     }
-
-    if (email && !email.includes('@')) {
-      setError('Contact email looks invalid.')
+    if (!trimmedEmail) {
+      setStatus('error')
+      setError('Email is required.')
+      return
+    }
+    if (!trimmedEmail.includes('@')) {
+      setStatus('error')
+      setError('Email looks invalid.')
+      return
+    }
+    if (!password) {
+      setStatus('error')
+      setError('Password is required.')
       return
     }
 
     setBusy(true)
     try {
-      const res = await registerBusiness({
+      const res = await registerBusinessAuth({
         businessName: name,
-        contactEmail: email || undefined,
         businessCountry,
+        email: trimmedEmail,
+        password,
       })
-      setBusinessCode(res.businessCode)
 
+      setBusinessCode(res.businessCode)
       localStorage.setItem('ddworkrecord_business_code', res.businessCode)
-      localStorage.setItem('ddworkrecord_business_country', businessCountry)
-      // Stay on this page and show welcome + next steps (console "Get Started")
+      if (res.businessCountry) localStorage.setItem('ddworkrecord_business_country', res.businessCountry)
+      setStatus('success')
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to register business.'
       setError(message)
+      setStatus('error')
     } finally {
       setBusy(false)
     }
@@ -52,14 +72,24 @@ export default function BusinessRegister() {
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 860, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
-      <h1 style={{ margin: 0, color: theme.text }}>Business Registration</h1>
+      <h1 style={{ margin: 0, color: theme.text, fontWeight: 1150 }}>Business Signup</h1>
       <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850 }}>
-        Register your business once. We’ll generate a unique access code so you can login to your business dashboard.
+        Your business is created by the backend. You’ll get a business access code for the portal.
       </p>
 
       <div style={{ marginTop: 18, border: `2px solid ${theme.borderSoft}`, borderRadius: theme.radiusMd, background: theme.surface, padding: 16 }}>
         {error ? (
-          <div style={{ marginBottom: 12, padding: 12, background: theme.errorBg, borderLeft: `4px solid ${theme.error}`, fontWeight: 950, borderRadius: theme.radiusSm, color: theme.text }}>
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              background: theme.errorBg,
+              borderLeft: `4px solid ${theme.error}`,
+              fontWeight: 950,
+              borderRadius: theme.radiusSm,
+              color: theme.text,
+            }}
+          >
             {error}
           </div>
         ) : null}
@@ -112,12 +142,12 @@ export default function BusinessRegister() {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Contact email (optional)</label>
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Email</label>
             <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               type="email"
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              placeholder="admin@supplier.com"
+              placeholder="you@company.com"
               style={{
                 width: '100%',
                 padding: 10,
@@ -128,6 +158,28 @@ export default function BusinessRegister() {
                 background: theme.surface,
                 color: theme.text,
               }}
+              autoComplete="email"
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 1050, marginBottom: 8, color: theme.text }}>Password</label>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              placeholder="••••••••"
+              style={{
+                width: '100%',
+                padding: 10,
+                border: `2px solid ${theme.text}`,
+                borderRadius: theme.radiusSm,
+                fontWeight: 900,
+                outline: 'none',
+                background: theme.surface,
+                color: theme.text,
+              }}
+              autoComplete="new-password"
             />
           </div>
         </div>
@@ -148,11 +200,11 @@ export default function BusinessRegister() {
               whiteSpace: 'nowrap',
             }}
           >
-            {busy ? 'Registering…' : 'Register & get code'}
+            {busy ? 'Creating…' : 'Create & get access code'}
           </button>
 
           <a href="#business-login" style={{ fontWeight: 1050, color: theme.text, textDecoration: 'underline' }}>
-            I already have a code
+            I already have an account
           </a>
         </div>
 
@@ -162,14 +214,11 @@ export default function BusinessRegister() {
             <div style={{ fontWeight: 1100, fontSize: 18, color: theme.text }}>{businessCode}</div>
 
             <div style={{ marginTop: 10, color: theme.muted2, fontWeight: 850, fontSize: 12.5, lineHeight: 1.5 }}>
-              {contactEmail.trim()
-                ? `We’ll email your login details to: ${contactEmail.trim()}`
-                : 'Add a contact email next time to receive login details by email.'}
+              Use your account email/password at login. The backend will mint the same business access code for the portal.
             </div>
 
             <button
               onClick={() => {
-                // Send to the normal DD console (no separate business portal UI).
                 window.location.hash = '#dashboard'
               }}
               style={{

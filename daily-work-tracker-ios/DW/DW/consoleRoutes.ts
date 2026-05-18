@@ -125,6 +125,70 @@ router.post('/auth/session', async (req: Request, res: Response) => {
   }
 })
 
+type EmailPasswordLoginBody = {
+  email?: string
+  password?: string
+}
+
+router.post('/auth/session/email', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<EmailPasswordLoginBody> | undefined
+    const email = (body?.email ?? '').toString().trim()
+    const password = (body?.password ?? '').toString()
+
+    if (!email) return res.status(400).json({ error: 'email is required.' })
+    if (!password) return res.status(400).json({ error: 'password is required.' })
+
+    const firebaseApiKey = readEnv('FIREBASE_API_KEY')
+
+    // Firebase Identity Toolkit REST API:
+    // https://firebase.google.com/docs/reference/rest/auth#section-sign-in-email-password
+    const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`
+    const payload = { email, password, returnSecureToken: true }
+
+    const signInRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    const rawText = await signInRes.text().catch(() => '')
+    if (!signInRes.ok) {
+      // Don’t leak Firebase error details; keep message short.
+      return res.status(401).json({
+        error: 'Unauthorized: Email sign-in failed.',
+        message: rawText?.slice(0, 180) ?? undefined,
+      })
+    }
+
+    const parsed = JSON.parse(rawText || '{}') as { idToken?: string }
+    const idToken = (parsed.idToken ?? '').toString().trim()
+
+    if (!idToken) {
+      return res.status(401).json({ error: 'Unauthorized: Firebase did not return an idToken.' })
+    }
+
+    // Reuse the same verification+claims parsing as the idToken-based exchange.
+    const decoded = await (await import('firebase-admin')).default.auth().verifyIdToken(idToken)
+    const claims = decoded as unknown as Record<string, unknown>
+
+    const role = parseRoleClaim(claims)
+    if (role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient role.', role })
+    }
+
+    const tenantId = parseTenantIdClaim(claims)
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+    }
+
+    return res.status(200).json({ token: idToken, tenantId, role })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return res.status(401).json({ error: 'Unauthorized: Email sign-in failed.', message: msg })
+  }
+})
+
 router.get('/stats/:period', authenticateAdmin, async (req: Request, res: Response) => {
   const rawPeriod = req.params.period;
   const period = Array.isArray(rawPeriod) ? rawPeriod[0] : rawPeriod;

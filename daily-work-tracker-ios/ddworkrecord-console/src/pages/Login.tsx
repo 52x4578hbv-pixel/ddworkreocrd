@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, type Auth } from 'firebase/auth'
+import { signInWithPopup, GoogleAuthProvider, type Auth } from 'firebase/auth'
 import { getOrInitFirebase, type FirebaseConfig } from '../lib/firebase'
-import { exchangeAdminSession, fetchFirebaseClientConfig } from '../lib/consoleAuth'
+import { exchangeAdminSession, exchangeAdminEmailSession, fetchFirebaseClientConfig } from '../lib/consoleAuth'
 import { theme } from '../lib/theme'
 
 type AuthStatus = 'idle' | 'loading' | 'error' | 'success'
@@ -57,7 +57,11 @@ export default function Login() {
     return auth as Auth
   }
 
-  const finishLogin = async (idToken: string) => {
+  const redirectToDashboard = () => {
+    window.location.hash = '#dashboard'
+  }
+
+  const finishIdTokenLogin = async (idToken: string) => {
     setStatus('loading')
     setError(null)
 
@@ -65,7 +69,7 @@ export default function Login() {
     safeSetLocalToken(session.token)
 
     setStatus('success')
-    window.location.hash = '#dashboard'
+    redirectToDashboard()
   }
 
   const onGoogleLogin = async () => {
@@ -80,7 +84,7 @@ export default function Login() {
       const user = result.user
       const idToken = await user.getIdToken()
 
-      await finishLogin(idToken)
+      await finishIdTokenLogin(idToken)
     } catch (e) {
       setStatus('error')
       setError(e instanceof Error ? e.message : 'Google sign-in failed')
@@ -92,12 +96,11 @@ export default function Login() {
       setStatus('loading')
       setError(null)
 
-      const auth = await ensureFirebase()
+      const session = await exchangeAdminEmailSession(email.trim(), password)
+      safeSetLocalToken(session.token)
 
-      const res = await signInWithEmailAndPassword(auth, email.trim(), password)
-      const idToken = await res.user.getIdToken()
-
-      await finishLogin(idToken)
+      setStatus('success')
+      redirectToDashboard()
     } catch (e) {
       setStatus('error')
       setError(e instanceof Error ? e.message : 'Email login failed')
@@ -204,7 +207,7 @@ export default function Login() {
 
         <button
           onClick={onEmailLogin}
-          disabled={configStatus !== 'success' || status === 'loading' || !canEmailLogin}
+          disabled={status === 'loading' || !canEmailLogin}
           style={{
             marginTop: 12,
             width: '100%',
@@ -213,7 +216,7 @@ export default function Login() {
             border: `2px solid ${theme.accentDark}`,
             background: theme.accent,
             color: '#fff',
-            cursor: configStatus === 'success' && status !== 'loading' && canEmailLogin ? 'pointer' : 'not-allowed',
+            cursor: status !== 'loading' && canEmailLogin ? 'pointer' : 'not-allowed',
             borderRadius: theme.radiusSm,
             boxShadow: `3px 3px 0 ${theme.accentDark}`,
             whiteSpace: 'nowrap',

@@ -14,6 +14,12 @@ type RegisterResponse = {
   tenantId?: string
 }
 
+type BusinessAuthResponse = {
+  businessCode: string
+  tenantId?: string
+  businessCountry?: 'ZA' | 'US' | null
+}
+
 type BusinessStatsResponse = {
   period: Period
   grandTotals?: {
@@ -63,6 +69,41 @@ export async function registerBusiness(input: {
   }
 
   return (await res.json()) as RegisterResponse
+}
+
+export async function registerBusinessAuth(input: {
+  businessName: string
+  businessCountry: 'ZA' | 'US'
+  email: string
+  password: string
+}) {
+  const res = await fetch(`${API_BASE_URL}/api/v1/business/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`business auth register failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  return (await res.json()) as BusinessAuthResponse
+}
+
+export async function loginBusinessAuth(input: { email: string; password: string }) {
+  const res = await fetch(`${API_BASE_URL}/api/v1/business/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`business auth login failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  return (await res.json()) as BusinessAuthResponse
 }
 
 export async function fetchBusinessStats(period: Period) {

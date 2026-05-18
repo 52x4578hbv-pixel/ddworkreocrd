@@ -1,40 +1,57 @@
 import { useState } from 'react'
 import type { Period } from '../lib/api'
-import { fetchBusinessStats } from '../lib/businessApi'
+import { fetchBusinessStats, loginBusinessAuth } from '../lib/businessApi'
 import { theme } from '../lib/theme'
 
+type AuthStatus = 'idle' | 'loading' | 'error' | 'success'
+
 export default function BusinessLogin() {
-  const [code, setCode] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<AuthStatus>('idle')
 
   const [period] = useState<Period>('month')
   const [hasData, setHasData] = useState<boolean | null>(null)
 
+  const canLogin = email.trim().length > 0 && password.length > 0
+
   const submit = async () => {
     setError(null)
     setHasData(null)
+    setStatus('loading')
 
-    const trimmed = code.trim().toUpperCase()
-    if (!trimmed) {
-      setError('Business code is required.')
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setStatus('error')
+      setError('Email is required.')
+      return
+    }
+    if (!password) {
+      setStatus('error')
+      setError('Password is required.')
       return
     }
 
     setBusy(true)
     try {
-      // Save code first so businessApi authedFetch can use it.
-      localStorage.setItem('ddworkrecord_business_code', trimmed)
+      const res = await loginBusinessAuth({ email: trimmedEmail, password })
 
-      // Validate code (401/403 => invalid)
+      localStorage.setItem('ddworkrecord_business_code', res.businessCode)
+      if (res.businessCountry) {
+        localStorage.setItem('ddworkrecord_business_country', res.businessCountry)
+      }
+
       await fetchBusinessStats(period)
-
       setHasData(true)
-      // Business code should land directly in the normal DD console dashboard.
+      setStatus('success')
       window.location.hash = '#dashboard'
     } catch {
       setHasData(false)
-      setError('Code not valid')
+      setStatus('error')
+      setError('Login failed')
     } finally {
       setBusy(false)
     }
@@ -53,7 +70,7 @@ export default function BusinessLogin() {
     >
       <h1 style={{ margin: 0, color: theme.text, fontWeight: 1150 }}>Business Login</h1>
       <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850 }}>
-        Enter your unique business code to access your business dashboard.
+        Sign in to your business dashboard using your email + password.
       </p>
 
       <div
@@ -81,11 +98,13 @@ export default function BusinessLogin() {
           </div>
         ) : null}
 
-        <label style={{ display: 'block', fontWeight: 1100, marginBottom: 8, color: theme.text }}>Business code</label>
+        <label style={{ display: 'block', fontWeight: 1100, marginBottom: 8, color: theme.text }}>Email</label>
         <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="e.g. ABC123DEF4"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@business.com"
+          type="email"
+          autoComplete="email"
           style={{
             width: '100%',
             padding: 12,
@@ -93,20 +112,40 @@ export default function BusinessLogin() {
             border: `2px solid ${theme.text}`,
             fontWeight: 950,
             outline: 'none',
+            background: theme.surface,
           }}
-          autoCapitalize="characters"
         />
+
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'block', fontWeight: 1100, marginBottom: 8, color: theme.text }}>Password</label>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            type="password"
+            autoComplete="current-password"
+            style={{
+              width: '100%',
+              padding: 12,
+              borderRadius: theme.radiusSm,
+              border: `2px solid ${theme.text}`,
+              fontWeight: 950,
+              outline: 'none',
+              background: theme.surface,
+            }}
+          />
+        </div>
 
         <div style={{ marginTop: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => void submit()}
-            disabled={busy}
+            disabled={busy || !canLogin}
             style={{
               padding: '12px 16px',
               border: `2px solid ${theme.text}`,
               background: theme.text,
               color: '#fff',
-              cursor: busy ? 'not-allowed' : 'pointer',
+              cursor: busy || !canLogin ? 'not-allowed' : 'pointer',
               fontWeight: 1050,
               borderRadius: theme.radiusSm,
               whiteSpace: 'nowrap',
@@ -117,12 +156,16 @@ export default function BusinessLogin() {
           </button>
 
           <a href="#business-register" style={{ fontWeight: 1050, color: theme.text, textDecoration: 'underline' }}>
-            Register for code
+            Register instead
           </a>
 
-          {hasData === true ? <div style={{ color: theme.success, fontWeight: 1000 }}>Code accepted ✓</div> : null}
-          {hasData === false ? <div style={{ color: theme.error, fontWeight: 1000 }}>Code not valid</div> : null}
+          {hasData === true ? <div style={{ color: theme.success, fontWeight: 1000 }}>Login ✓</div> : null}
+          {hasData === false ? <div style={{ color: theme.error, fontWeight: 1000 }}>Not valid</div> : null}
         </div>
+      </div>
+
+      <div style={{ marginTop: 14, color: theme.muted2, fontSize: 12.3, fontWeight: 850 }}>
+        After login, the backend will mint your business access code for the rest of the portal.
       </div>
     </div>
   )
