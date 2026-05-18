@@ -386,8 +386,22 @@ router.get('/workdays', authenticateBusinessCode, async (req: Request, res: Resp
     const endExclusive = new Date(`${endDate}T00:00:00.000Z`).getTime() + 24 * 3600 * 1000
 
     const parseDate = (v: unknown) => {
-      if (typeof v !== 'string') return null
-      const t = new Date(`${v}T00:00:00.000Z`).getTime()
+      if (v === null || v === undefined) return null
+
+      const raw = typeof v === 'string' ? v.trim() : String(v).trim()
+      if (!raw) return null
+
+      // YYYY-MM-DD
+      if (raw.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const t = new Date(`${raw}T00:00:00.000Z`).getTime()
+        return Number.isFinite(t) ? t : null
+      }
+
+      // ISO datetime (or other parseable string) -> normalize to UTC midnight
+      const d = new Date(raw)
+      if (!Number.isFinite(d.getTime())) return null
+      d.setUTCHours(0, 0, 0, 0)
+      const t = d.getTime()
       return Number.isFinite(t) ? t : null
     }
 
