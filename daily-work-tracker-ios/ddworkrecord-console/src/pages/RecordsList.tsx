@@ -27,7 +27,8 @@ export default function RecordsList() {
         })
         if (res.ok) {
           const data = await res.json()
-          setLiveWorkdays(data as LocalPreviewWorkday[])
+          const workdaysList = Array.isArray(data) ? data : (data?.workdays ?? [])
+          setLiveWorkdays(workdaysList as unknown as LocalPreviewWorkday[])
         }
       } catch (e) {
         console.error('Failed to fetch cloud records', e)
@@ -148,36 +149,36 @@ export default function RecordsList() {
               <div>
                 <div style={{ fontWeight: 1000, fontSize: 16 }}>{w.date}</div>
                 <div style={{ marginTop: 6, color: '#475569', fontWeight: 800, fontSize: 12 }}>
-                  {w.startTime} → {w.endTime} • {w.employeeCode}
+                  {(w as any).startTime ?? (w as any).start_time ?? '—'} → {(w as any).endTime ?? (w as any).end_time ?? '—'} • {(w as any).employeeCode ?? (w as any).employeeId ?? (w as any).employee_id ?? '—'}
                 </div>
               </div>
 
               <div style={{ padding: 10, border: `2px solid ${theme.text}`, borderRadius: theme.radiusSm, background: theme.surface }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Hours</div>
-                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 22 }}>{w.totalHours}</div>
+                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 22 }}>{(w as any).totalHours ?? '—'}</div>
               </div>
             </div>
 
             <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
               <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Km</div>
-                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{w.totalDistanceKm}</div>
+                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{(w as any).totalDistanceKm ?? '—'}</div>
               </div>
 
               <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Fuel</div>
-                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{w.fuelCost}</div>
+                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{(w as any).fuelCost ?? '—'}</div>
               </div>
 
               <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Spend</div>
-                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{w.supplierSpend}</div>
+                <div style={{ marginTop: 6, fontWeight: 1000, fontSize: 18 }}>{(w as any).supplierSpend ?? '—'}</div>
               </div>
 
               <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#fff' }}>
                 <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Notes</div>
                 <div style={{ marginTop: 6, fontWeight: 850, fontSize: 12, color: '#0f172a', lineHeight: 1.35 }}>
-                  {w.notes || '—'}
+                  {(w as any).notes ?? (w as any).endNotes ?? '—'}
                 </div>
               </div>
             </div>
