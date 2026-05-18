@@ -22,6 +22,11 @@ export async function fetchFirebaseClientConfig(): Promise<FirebaseClientConfig>
   })
 
   if (!res.ok) {
+    if (res.status === 404) {
+      // Backend might be behind an older deploy that doesn't include this route yet.
+      throw new Error('Firebase is not configured (firebase-config endpoint missing).')
+    }
+
     const body = await res.text().catch(() => '')
     throw new Error(`Failed to fetch firebase config: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
   }
