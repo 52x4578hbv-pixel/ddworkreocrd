@@ -779,7 +779,7 @@ struct EndDayScreen: View {
                         endDayLastTap = Date()
                         debugStep = "tapped"
 
-                        Task.detached(priority: .userInitiated) { [notes, mileage, locationService, repository] in
+                        Task(priority: .userInitiated) { @MainActor in
                             do {
                                 let ok = await locationService.requestAuthorizationIfNeeded()
                                 guard ok else { throw LocationService.LocationError.notAuthorized }

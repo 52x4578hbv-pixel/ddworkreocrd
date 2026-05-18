@@ -21,6 +21,7 @@ import AssistantPage from './pages/AssistantPage'
 import AIAnalyzer from './pages/AIAnalyzer'
 import GeoMap from './pages/GeoMap'
 import Timesheet from './pages/Timesheet'
+import Automation from './pages/Automation'
 
 // Routes are based on the URL hash (no React Router in this project)
 type Route =
@@ -45,6 +46,7 @@ type Route =
   | 'business-login'
   | 'business-dashboard'
   | 'timesheet'
+  | 'automation'
   | string // Allow dynamic sub-routes like employee/EMP-001
 
 function getRouteFromHash(): Route {
@@ -90,6 +92,7 @@ function getRouteFromHash(): Route {
   if (h === 'ai-analyzer') return 'ai-analyzer'
   if (h === 'geo-map') return 'geo-map'
   if (h === 'timesheet') return 'timesheet'
+  if (h === 'automation') return 'automation'
 
   if (h === 'business-register') return 'business-register'
   if (h === 'business-login') return 'business-login'
@@ -118,6 +121,7 @@ function Navigation({ current }: { current: Route }) {
     { label: 'AI Analyzer', r: 'ai-analyzer', h: '#ai-analyzer' },
     { label: 'Geo Map', r: 'geo-map', h: '#geo-map' },
     { label: 'Timesheet', r: 'timesheet', h: '#timesheet' },
+    { label: 'Automation', r: 'automation', h: '#automation' },
 
     { label: 'Settings', r: 'settings', h: '#settings' },
   ]
@@ -209,6 +213,7 @@ export default function App() {
 
     if (route === 'geo-map') return <GeoMap />
     if (route === 'timesheet') return <Timesheet />
+    if (route === 'automation') return <Automation />
 
     if (route.startsWith('employee/')) return <EmployeePage />
     if (route.startsWith('assistant/')) return <AssistantPage />
