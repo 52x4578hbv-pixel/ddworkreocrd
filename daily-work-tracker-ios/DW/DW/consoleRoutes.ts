@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { authenticateAdmin } from './auth';
+import { authenticateAdmin, type AppRole } from './auth';
 import { memoryStore } from './memoryStore';
 
 const router = express.Router();
@@ -22,6 +22,108 @@ const asNullableNumber = (v: unknown): number | null => {
   }
   return null;
 };
+
+type FirebaseClientConfig = {
+  apiKey: string
+  authDomain: string
+  projectId: string
+  storageBucket?: string
+  messagingSenderId?: string
+  appId: string
+}
+
+const readEnv = (name: string): string => {
+  const raw = process.env[name]
+  const trimmed = raw?.trim()
+  if (!trimmed) throw new Error(`Missing required env var: ${name}`)
+  return trimmed
+}
+
+const parseRoleClaim = (claims: Record<string, unknown>): AppRole | null => {
+  const role = claims.role ?? claims.userRole ?? ''
+  const roleStr = String(role ?? '').toLowerCase().trim()
+  if (roleStr === 'admin' || roleStr === 'manager' || roleStr === 'worker') return roleStr
+
+  // Backward compatible shapes
+  const isAdminClaim =
+    claims.admin === true ||
+    String(claims.admin ?? '').toLowerCase() === 'true' ||
+    claims.admin === 'true' ||
+    claims.admin === '1' ||
+    claims.admin === 1
+
+  if (isAdminClaim) return 'admin'
+  return null
+}
+
+const parseTenantIdClaim = (claims: Record<string, unknown>): string | null => {
+  const raw =
+    claims.tenantId ??
+    claims.tenant ??
+    claims.businessId ??
+    claims.business_id ??
+    claims.companyId ??
+    claims.company_id ??
+    null
+
+  const s = raw === null || raw === undefined ? '' : String(raw).trim()
+  return s.length ? s : null
+}
+
+type SessionExchangeBody = {
+  idToken: string
+}
+
+router.get('/firebase-config', async (_req: Request, res: Response) => {
+  try {
+    // Client SDK config is safe to expose; it contains no secrets.
+    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET?.trim()
+    const messagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID?.trim()
+
+    const config: FirebaseClientConfig = {
+      apiKey: readEnv('FIREBASE_API_KEY'),
+      authDomain: readEnv('FIREBASE_AUTH_DOMAIN'),
+      projectId: readEnv('FIREBASE_PROJECT_ID'),
+      ...(storageBucket ? { storageBucket } : {}),
+      ...(messagingSenderId ? { messagingSenderId } : {}),
+      appId: readEnv('FIREBASE_APP_ID'),
+    }
+
+    return res.status(200).json(config)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return res.status(500).json({ error: 'Failed to build firebase client config', message: msg })
+  }
+})
+
+router.post('/auth/session', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<SessionExchangeBody> | undefined
+    const idToken = (body?.idToken ?? '').toString().trim()
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'idToken is required.' })
+    }
+
+    const decoded = await (await import('firebase-admin')).default.auth().verifyIdToken(idToken)
+    const claims = decoded as unknown as Record<string, unknown>
+
+    const role = parseRoleClaim(claims)
+    if (role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient role.', role })
+    }
+
+    const tenantId = parseTenantIdClaim(claims)
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+    }
+
+    return res.status(200).json({ token: idToken, tenantId, role })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return res.status(401).json({ error: 'Unauthorized: Invalid Firebase ID token.', message: msg })
+  }
+})
 
 router.get('/stats/:period', authenticateAdmin, async (req: Request, res: Response) => {
   const rawPeriod = req.params.period;

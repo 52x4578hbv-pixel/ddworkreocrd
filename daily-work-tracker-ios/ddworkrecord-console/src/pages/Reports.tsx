@@ -131,7 +131,7 @@ export default function Reports() {
 
     try {
       const token = localStorage.getItem('ddworkrecord_admin_token')
-      if (!token) throw new Error('Missing admin token. Open the Token Viewer and paste an admin JWT.')
+      if (!token) throw new Error('Missing admin session. Open #/login and sign in (Google or email/password).')
 
       const blob = await fetchXlsxExport(
         {
@@ -246,7 +246,7 @@ export default function Reports() {
       <div style={{ marginTop: 14, padding: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
         <div style={{ fontWeight: 1000 }}>Export to Excel (XLSX)</div>
         <div style={{ marginTop: 6, color: '#64748b', fontWeight: 850, fontSize: 12 }}>
-          Backend export requires an admin token. Use Token Viewer if you haven’t already.
+          Backend export requires an admin session. Open #/login and sign in (Google or email/password).
         </div>
 
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>

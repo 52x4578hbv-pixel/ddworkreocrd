@@ -100,7 +100,7 @@ export default function JobsReports() {
 
     try {
       const token = localStorage.getItem('ddworkrecord_admin_token')
-      if (!token) throw new Error('Missing admin token. Open the Token Viewer and paste an admin JWT.')
+      if (!token) throw new Error('Missing admin session. Open #/login and sign in (Google or email/password).')
 
       const blob = await fetchXlsxExport({ startDate, endDate }, token)
 

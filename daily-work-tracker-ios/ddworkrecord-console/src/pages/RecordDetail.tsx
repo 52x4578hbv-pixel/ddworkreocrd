@@ -144,7 +144,7 @@ export default function RecordDetail() {
 
     const token = localStorage.getItem('ddworkrecord_admin_token')
     if (!token) {
-      setError('Missing admin token. Paste a Firebase ID token into Token Viewer and try again.')
+      setError('Missing admin session. Open #/login and sign in (Google or email/password).')
       return
     }
 

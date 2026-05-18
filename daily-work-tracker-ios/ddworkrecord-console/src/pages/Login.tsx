@@ -1,160 +1,250 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, type Auth } from 'firebase/auth'
+import { getOrInitFirebase, type FirebaseConfig } from '../lib/firebase'
+import { exchangeAdminSession, fetchFirebaseClientConfig } from '../lib/consoleAuth'
 import { theme } from '../lib/theme'
 
+type AuthStatus = 'idle' | 'loading' | 'error' | 'success'
+
+function safeSetLocalToken(token: string) {
+  try {
+    localStorage.setItem('ddworkrecord_admin_token', token)
+  } catch {
+    // ignore
+  }
+}
+
 export default function Login() {
-  const [token, setToken] = useState('')
+  const [fbConfig, setFbConfig] = useState<FirebaseConfig | null>(null)
+  const [configStatus, setConfigStatus] = useState<AuthStatus>('idle')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState<AuthStatus>('idle')
   const [error, setError] = useState<string | null>(null)
 
-  const submit = () => {
+  const canEmailLogin = useMemo(() => email.trim().length > 0 && password.length > 0, [email, password])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const run = async () => {
+      setConfigStatus('loading')
+      setError(null)
+
+      try {
+        const cfg = await fetchFirebaseClientConfig()
+        if (cancelled) return
+        setFbConfig(cfg as unknown as FirebaseConfig)
+        setConfigStatus('success')
+      } catch (e) {
+        if (cancelled) return
+        setConfigStatus('error')
+        setError(e instanceof Error ? e.message : 'Failed to load Firebase config')
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const ensureFirebase = async (): Promise<Auth> => {
+    if (!fbConfig) throw new Error('Firebase config not loaded yet')
+    const auth = getOrInitFirebase(fbConfig)
+    if (!auth) throw new Error('Firebase Auth failed to initialize')
+    return auth as Auth
+  }
+
+  const finishLogin = async (idToken: string) => {
+    setStatus('loading')
     setError(null)
-    const trimmed = token.trim()
 
-    if (!trimmed) {
-      setError('Admin token is required.')
-      return
-    }
+    const session = await exchangeAdminSession(idToken)
+    safeSetLocalToken(session.token)
 
-    // JWTs typically start with "eyJ..." (base64 for {"alg":...})
-    if (!/^eyJ/.test(trimmed) && trimmed.length < 30) {
-      setError('Token looks too short. Paste the full Firebase ID token (JWT).')
-      return
-    }
-
-    localStorage.setItem('ddworkrecord_admin_token', trimmed)
+    setStatus('success')
     window.location.hash = '#dashboard'
+  }
+
+  const onGoogleLogin = async () => {
+    try {
+      setStatus('loading')
+      setError(null)
+
+      const auth = await ensureFirebase()
+      const provider = new GoogleAuthProvider()
+
+      const result = await signInWithPopup(auth, provider)
+      const user = result.user
+      const idToken = await user.getIdToken()
+
+      await finishLogin(idToken)
+    } catch (e) {
+      setStatus('error')
+      setError(e instanceof Error ? e.message : 'Google sign-in failed')
+    }
+  }
+
+  const onEmailLogin = async () => {
+    try {
+      setStatus('loading')
+      setError(null)
+
+      const auth = await ensureFirebase()
+
+      const res = await signInWithEmailAndPassword(auth, email.trim(), password)
+      const idToken = await res.user.getIdToken()
+
+      await finishLogin(idToken)
+    } catch (e) {
+      setStatus('error')
+      setError(e instanceof Error ? e.message : 'Email login failed')
+    }
   }
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 760, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
-      <h1 style={{ margin: 0, color: theme.text, fontWeight: 1150 }}>DD Work Record - Admin Console</h1>
+      <h1 style={{ margin: 0, color: theme.text, fontWeight: 1150 }}>DD Work Record - Admin Login</h1>
 
       <p style={{ marginTop: 10, color: theme.muted, fontWeight: 800 }}>
-        Admin token required. Paste a Firebase ID token (JWT).
+        Sign in with Google or email/password. Backend verifies the session and returns your admin token.
       </p>
 
-      <div style={{ marginTop: 14, padding: 14, borderRadius: theme.radiusMd, border: `2px solid ${theme.borderSoft}`, background: theme.surface }}>
-        <div style={{ fontWeight: 1100 }}>Business portal (recommended)</div>
+      <div
+        style={{
+          marginTop: 14,
+          padding: 14,
+          borderRadius: theme.radiusMd,
+          border: `2px solid ${theme.borderSoft}`,
+          background: theme.surface,
+        }}
+      >
+        <div style={{ fontWeight: 1100, color: theme.text }}>Google sign-in</div>
         <div style={{ marginTop: 8, color: theme.muted, fontSize: 13.2, fontWeight: 800, lineHeight: 1.45 }}>
-          Businesses register once to get a unique code, then use that code to access their own dashboard.
+          One-click sign in. If your Firebase user has the required admin role, you’ll be authorized.
         </div>
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-          <a
-            href="#business-register"
-            style={{
-              padding: '10px 14px',
-              border: `2px solid ${theme.accentDark}`,
-              background: theme.accent,
-              color: '#fff',
-              borderRadius: theme.radiusSm,
-              fontWeight: 1100,
-              textDecoration: 'none',
-              boxShadow: `3px 3px 0 ${theme.accentDark}`,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Register business
-          </a>
-
-          <a
-            href="#business-login"
-            style={{
-              padding: '10px 14px',
-              border: `2px solid ${theme.borderStrong}`,
-              background: theme.surface,
-              color: theme.text,
-              borderRadius: theme.radiusSm,
-              fontWeight: 1000,
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            I have a code
-          </a>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 14, padding: 14, borderRadius: theme.radiusMd, border: `2px solid ${theme.borderSoft}`, background: theme.surface }}>
-        <div style={{ fontWeight: 1000 }}>How to get the token</div>
-        <ol style={{ margin: '8px 0 0 18px', padding: 0, color: theme.muted, fontSize: 13, lineHeight: 1.5, fontWeight: 800 }}>
-          <li>
-            Open the token generator: <a href="#/token-viewer" style={{ fontWeight: 1000, color: theme.accentDark, textDecoration: 'underline' }}>#/token-viewer</a>
-          </li>
-          <li>Paste Firebase config, sign in as admin, click <b>Generate token</b></li>
-          <li>Copy the ID token and paste it below</li>
-        </ol>
-      </div>
-
-      {error ? (
-        <div style={{ marginTop: 16, padding: 12, background: theme.errorBg, borderLeft: `4px solid ${theme.error}`, fontWeight: 900, borderRadius: theme.radiusSm, color: theme.errorDark }}>
-          {error}
-        </div>
-      ) : null}
-
-      <div style={{ marginTop: 16 }}>
-        <label style={{ display: 'block', fontWeight: 1000, marginBottom: 8, color: theme.text }}>Admin Bearer Token</label>
-        <textarea
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          rows={8}
-          style={{
-            width: '100%',
-            padding: 10,
-            fontSize: 12,
-            borderRadius: theme.radiusSm,
-            border: `2px solid ${theme.borderStrong}`,
-            background: theme.surface,
-            outline: 'none',
-            fontWeight: 850,
-            color: theme.text,
-          }}
-          placeholder="eyJhbGciOi... (paste full token)"
-          spellCheck={false}
-          autoCapitalize="none"
-        />
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
         <button
-          onClick={submit}
+          onClick={onGoogleLogin}
+          disabled={configStatus !== 'success' || status === 'loading'}
           style={{
-            padding: '10px 14px',
+            marginTop: 12,
+            width: '100%',
+            padding: '12px 14px',
             fontWeight: 1000,
             border: `2px solid ${theme.accentDark}`,
             background: theme.accent,
             color: '#fff',
-            cursor: 'pointer',
+            cursor: configStatus === 'success' && status !== 'loading' ? 'pointer' : 'not-allowed',
             borderRadius: theme.radiusSm,
             boxShadow: `3px 3px 0 ${theme.accentDark}`,
             whiteSpace: 'nowrap',
           }}
         >
-          Continue
-        </button>
-
-        <button
-          onClick={() => {
-            localStorage.removeItem('ddworkrecord_admin_token')
-            setToken('')
-            setError(null)
-          }}
-          style={{
-            padding: '10px 14px',
-            fontWeight: 1000,
-            border: `2px solid ${theme.borderStrong}`,
-            background: theme.surface,
-            cursor: 'pointer',
-            color: theme.text,
-            borderRadius: theme.radiusSm,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Clear
+          {status === 'loading' ? 'Signing in...' : 'Sign in with Google'}
         </button>
       </div>
 
-      <div style={{ marginTop: 10, color: theme.muted2, fontSize: 12.5, fontWeight: 800 }}>
-        Tip: Token must be a Firebase ID token (JWT). Backend verifies it and requires admin role.
+      <div
+        style={{
+          marginTop: 14,
+          padding: 14,
+          borderRadius: theme.radiusMd,
+          border: `2px solid ${theme.borderSoft}`,
+          background: theme.surface,
+        }}
+      >
+        <div style={{ fontWeight: 1100, color: theme.text }}>Email login</div>
+
+        <div style={{ marginTop: 10 }}>
+          <label style={{ display: 'block', fontWeight: 1000, marginBottom: 8, color: theme.text }}>Email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            autoComplete="email"
+            style={{
+              width: '100%',
+              padding: 10,
+              fontSize: 12,
+              borderRadius: theme.radiusSm,
+              border: `2px solid ${theme.borderStrong}`,
+              background: theme.surface,
+              outline: 'none',
+              fontWeight: 850,
+              color: theme.text,
+            }}
+            placeholder="admin@yourcompany.com"
+          />
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'block', fontWeight: 1000, marginBottom: 8, color: theme.text }}>Password</label>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            autoComplete="current-password"
+            style={{
+              width: '100%',
+              padding: 10,
+              fontSize: 12,
+              borderRadius: theme.radiusSm,
+              border: `2px solid ${theme.borderStrong}`,
+              background: theme.surface,
+              outline: 'none',
+              fontWeight: 850,
+              color: theme.text,
+            }}
+            placeholder="••••••••"
+          />
+        </div>
+
+        <button
+          onClick={onEmailLogin}
+          disabled={configStatus !== 'success' || status === 'loading' || !canEmailLogin}
+          style={{
+            marginTop: 12,
+            width: '100%',
+            padding: '12px 14px',
+            fontWeight: 1000,
+            border: `2px solid ${theme.accentDark}`,
+            background: theme.accent,
+            color: '#fff',
+            cursor: configStatus === 'success' && status !== 'loading' && canEmailLogin ? 'pointer' : 'not-allowed',
+            borderRadius: theme.radiusSm,
+            boxShadow: `3px 3px 0 ${theme.accentDark}`,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {status === 'loading' ? 'Signing in...' : 'Sign in'}
+        </button>
+
+        <div style={{ marginTop: 10, color: theme.muted2, fontSize: 12.5, fontWeight: 800 }}>
+          Tip: your Firebase user must have the required admin role claim.
+        </div>
+      </div>
+
+      {error ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: theme.errorBg,
+            borderLeft: `4px solid ${theme.error}`,
+            fontWeight: 900,
+            borderRadius: theme.radiusSm,
+            color: theme.errorDark,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+
+      <div style={{ marginTop: 14, color: theme.muted2, fontSize: 12.3, fontWeight: 800, lineHeight: 1.5 }}>
+        {configStatus === 'loading' ? 'Loading Firebase config...' : null}
       </div>
     </div>
   )

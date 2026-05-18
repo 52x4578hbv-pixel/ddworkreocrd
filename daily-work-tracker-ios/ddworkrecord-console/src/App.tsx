@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard'
 import AddDailyRecord from './pages/AddDailyRecord'
 import RecordsList from './pages/RecordsList'
 import Settings from './pages/Settings'
-import TokenViewer from './pages/TokenViewer'
 import LocalPreviewShell from './pages/LocalPreviewShell'
 import EmployeePage from './pages/EmployeePage'
 import RecordDetail from './pages/RecordDetail'
@@ -31,7 +30,6 @@ type Route =
   | 'add'
   | 'records'
   | 'settings'
-  | 'token-viewer'
   | 'local-preview'
   | 'dummy-local-preview'
   | 'jobs'
@@ -76,7 +74,6 @@ function getRouteFromHash(): Route {
   if (h === 'reports') return 'jobs' // removed tab; keep deep-link safe
 
   if (h === 'login') return 'login'
-  if (h === 'token-viewer') return 'token-viewer'
   if (h === 'dashboard') return 'dashboard'
   if (h === 'local-preview') return 'local-preview'
   if (h === 'dummy-local-preview') return 'dummy-local-preview'
@@ -199,7 +196,6 @@ export default function App() {
     if (route === 'add') return <AddDailyRecord />
     if (route === 'records') return <RecordsList />
     if (route === 'settings') return <Settings />
-    if (route === 'token-viewer') return <TokenViewer />
 
     if (route === 'local-preview') return <LocalPreviewShell />
     if (route === 'dummy-local-preview') return <DummyLocalPreview />
