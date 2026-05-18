@@ -26,6 +26,8 @@ const LS_ASSISTANT_CODES = 'ddworkrecord_assistant_codes_csv'
 const LS_VEHICLE_PROFILES_KEY = 'ddworkrecord_vehicle_profiles_json'
 const LS_VEHICLE_CODES = 'ddworkrecord_vehicle_codes_csv'
 
+const LS_IOS_WORKER_SECRETS_KEY = 'ddworkrecord_ios_worker_secrets_json'
+
 function safeRead(key: string): string {
   try {
     return localStorage.getItem(key) ?? ''
@@ -37,6 +39,14 @@ function safeRead(key: string): string {
 function safeWrite(key: string, value: string) {
   try {
     localStorage.setItem(key, value)
+  } catch {
+    // ignore
+  }
+}
+
+function safeRemove(key: string) {
+  try {
+    localStorage.removeItem(key)
   } catch {
     // ignore
   }
@@ -381,7 +391,35 @@ export default function Settings() {
 
   const [workerSecretsBusy, setWorkerSecretsBusy] = useState(false)
   const [workerSecretsError, setWorkerSecretsError] = useState<string | null>(null)
-  const [workerSecrets, setWorkerSecrets] = useState<{ employeeCode: string; workerSecret: string }[] | null>(null)
+  const [workerSecrets, setWorkerSecrets] = useState<{ employeeCode: string; workerSecret: string }[] | null>(() => {
+    const raw = safeRead(scopedKey(LS_IOS_WORKER_SECRETS_KEY))
+    if (!raw) return null
+    try {
+      const parsed: unknown = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return null
+      const rows: { employeeCode: string; workerSecret: string }[] = []
+      for (const item of parsed) {
+        if (typeof item !== 'object' || item === null) continue
+        const v = item as Record<string, unknown>
+        const employeeCode = typeof v.employeeCode === 'string' ? v.employeeCode : ''
+        const workerSecret = typeof v.workerSecret === 'string' ? v.workerSecret : ''
+        const cc = employeeCode.trim()
+        const ws = workerSecret.trim()
+        if (!cc || !ws) continue
+        rows.push({ employeeCode: cc, workerSecret: ws })
+      }
+
+      if (!rows.length) return null
+      const unique = Array.from(new Set(rows.map((s) => s.workerSecret)))
+      if (unique.length === 1) {
+        return [{ employeeCode: 'SHARED (all employees)', workerSecret: unique[0] }]
+      }
+
+      return rows
+    } catch {
+      return null
+    }
+  })
 
   const generateWorkerSecrets = async () => {
     setWorkerSecretsError(null)
@@ -399,11 +437,16 @@ export default function Settings() {
       const secrets = res.secrets
 
       const unique = Array.from(new Set(secrets.map((s) => s.workerSecret)))
-      if (unique.length === 1) {
-        setWorkerSecrets([{ employeeCode: 'SHARED (all employees)', workerSecret: unique[0] }])
-      } else {
-        setWorkerSecrets(secrets)
+      const sharedToken = unique[0] ?? ''
+      if (!sharedToken) {
+        setWorkerSecretsError('Failed to generate worker secret.')
+        return
       }
+
+      // Always display a single shared token (requirement: one worker secret per business).
+      const next = [{ employeeCode: 'SHARED (all employees)', workerSecret: sharedToken }]
+      setWorkerSecrets(next)
+      safeWrite(scopedKey(LS_IOS_WORKER_SECRETS_KEY), JSON.stringify(next))
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to generate worker secrets.'
       setWorkerSecretsError(message)
@@ -983,6 +1026,7 @@ export default function Settings() {
                     onClick={() => {
                       setWorkerSecrets(null)
                       setWorkerSecretsError(null)
+                      safeRemove(scopedKey(LS_IOS_WORKER_SECRETS_KEY))
                     }}
                     style={{
                       padding: '12px 16px',
