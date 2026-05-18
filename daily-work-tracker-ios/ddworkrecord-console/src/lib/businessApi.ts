@@ -115,6 +115,19 @@ export async function mintWorkerSecrets(employeeCodes: string[]) {
   return (await res.json()) as MintWorkerSecretsResponse
 }
 
+type BusinessWorkday = {
+  id: string
+  employeeId: string
+  date: string
+  workshops?: unknown[]
+  travels?: unknown[]
+  jobs?: unknown[]
+  suppliers?: unknown[]
+  fuels?: unknown[]
+  privateSegments?: unknown[]
+  endNotes?: string | null
+}
+
 export async function fetchBusinessLiveLocations(): Promise<LiveLocation[]> {
   const res = await authedFetch('/api/v1/business/live-locations', { method: 'GET' })
 
@@ -132,4 +145,35 @@ export async function fetchBusinessLiveLocations(): Promise<LiveLocation[]> {
   }
 
   return (await res.json()) as LiveLocation[]
+}
+
+export type PeriodRange = {
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD (inclusive-ish: backend treats as end date + 1 day)
+}
+
+export async function fetchBusinessWorkdays(input: {
+  range: PeriodRange
+  employeeCode?: string | null
+}): Promise<BusinessWorkday[]> {
+  const params = new URLSearchParams()
+  params.set('startDate', input.range.startDate)
+  params.set('endDate', input.range.endDate)
+  if (input.employeeCode) params.set('employeeCode', input.employeeCode)
+
+  const res = await authedFetch(`/api/v1/business/workdays?${params.toString()}`, { method: 'GET' })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`workdays failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`workdays failed: expected JSON but got ${contentType || 'unknown'}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  const data = (await res.json()) as { workdays: BusinessWorkday[] }
+  return data.workdays
 }

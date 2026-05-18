@@ -427,4 +427,66 @@ router.get('/live-locations', authenticateBusinessCode, async (req: Request, res
   }
 })
 
+router.get('/workdays', authenticateBusinessCode, async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).authTenantId as string | null
+    if (!tenantId) return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+
+    const q = req.query
+    const rawStart = Array.isArray(q.startDate) ? q.startDate[0] : q.startDate
+    const rawEnd = Array.isArray(q.endDate) ? q.endDate[0] : q.endDate
+    const rawEmployeeCode = Array.isArray(q.employeeCode) ? q.employeeCode[0] : q.employeeCode
+
+    const startDate = typeof rawStart === 'string' ? rawStart : null
+    const endDate = typeof rawEnd === 'string' ? rawEnd : null
+    const employeeCode = typeof rawEmployeeCode === 'string' ? rawEmployeeCode : null
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' })
+    }
+
+    const start = new Date(`${startDate}T00:00:00.000Z`).getTime()
+    const endExclusive = new Date(`${endDate}T00:00:00.000Z`).getTime() + 24 * 3600 * 1000
+
+    const parseDate = (v: unknown) => {
+      if (typeof v !== 'string') return null
+      const t = new Date(`${v}T00:00:00.000Z`).getTime()
+      return Number.isFinite(t) ? t : null
+    }
+
+    // Prefer Firestore if available; fallback to memoryStore.
+    let all: any[] = []
+    try {
+      const records = await pickTenantScopedFirestoreWorkdays(tenantId)
+      if (records.length) all = records as any
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('business workdays firestore read failed; using memoryStore:', e)
+    }
+
+    if (!all.length) {
+      all = memoryStore.getAll(tenantId) as any
+    }
+
+    const filtered = all
+      .filter((r) => {
+        const t = parseDate(r.date ?? r.workDate)
+        if (t === null) return false
+        return t >= start && t < endExclusive
+      })
+      .filter((r) => {
+        if (!employeeCode) return true
+        const code = String(r.employeeId ?? r.employee_code ?? '').trim()
+        return code === employeeCode
+      })
+      .sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')))
+
+    return res.status(200).json({ workdays: filtered })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('business workdays failed:', e)
+    return res.status(500).json({ error: 'Failed to fetch business workdays' })
+  }
+})
+
 export default router
