@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LocalPreviewWorkday, SupplierStop } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
 import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
 import { buildAiResearchReport } from '../lib/aiAnalyzerReport'
+import { fetchGeminiAnalyzerReport } from '../lib/geminiAnalyzer'
 
 type Focus = 'report' | 'jobs' | 'expenses'
 
@@ -125,8 +126,8 @@ export default function AIAnalyzer() {
     return rows.slice(0, 12)
   }, [filtered])
 
-  const reportText = useMemo(() => {
-    return buildAiResearchReport({
+  const reportContext = useMemo(() => {
+    return {
       filtered,
       insights,
       jobBreakdown,
@@ -134,8 +135,49 @@ export default function AIAnalyzer() {
       jobIdSearch,
       supplierSearch,
       minHours: minHoursNum,
-    })
+    }
   }, [filtered, insights, jobBreakdown, selectedEmployee, jobIdSearch, supplierSearch, minHoursNum])
+
+  const deterministicReportText = useMemo(() => buildAiResearchReport(reportContext), [reportContext])
+
+  const [aiReportText, setAiReportText] = useState<string>(deterministicReportText)
+  const [aiReportSource, setAiReportSource] = useState<'none' | 'gemini' | 'fallback'>('none')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const run = async () => {
+      setAiBusy(true)
+      setAiError(null)
+
+      try {
+        const resp = await fetchGeminiAnalyzerReport({
+          context: reportContext,
+          deterministicReportText,
+        })
+
+        if (cancelled) return
+        setAiReportText(resp.text)
+        setAiReportSource(resp.source)
+      } catch (e) {
+        if (cancelled) return
+        const msg = e instanceof Error ? e.message : 'Gemini request failed.'
+        setAiReportText(deterministicReportText)
+        setAiReportSource('fallback')
+        setAiError(msg)
+      } finally {
+        if (cancelled) return
+        setAiBusy(false)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [reportContext, deterministicReportText])
 
   const reportTitle = useMemo(() => {
     const parts: string[] = []
@@ -333,7 +375,9 @@ export default function AIAnalyzer() {
           <div style={{ marginTop: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
               <div style={{ fontWeight: 1100, color: theme.text }}>{reportTitle}</div>
-              <div style={{ color: theme.muted2, fontWeight: 950, fontSize: 12 }}>Regenerates automatically with filters</div>
+              <div style={{ color: theme.muted2, fontWeight: 950, fontSize: 12 }}>
+                {aiBusy ? 'Gemini generating…' : aiReportSource === 'gemini' ? 'Powered by Gemini' : 'Powered by local analyzer'}
+              </div>
             </div>
 
             <div
@@ -352,7 +396,12 @@ export default function AIAnalyzer() {
                 overflow: 'auto',
               }}
             >
-              {reportText}
+              {aiReportText}
+            {aiError ? (
+              <div style={{ marginTop: 8, color: theme.error, fontWeight: 900, fontSize: 12 }}>
+                Gemini fallback used. {aiError}
+              </div>
+            ) : null}
             </div>
           </div>
         ) : null}

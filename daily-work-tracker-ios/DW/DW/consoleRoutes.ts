@@ -489,4 +489,92 @@ router.get('/workdays', authenticateAdmin, async (_req: Request, res: Response) 
   }
 })
 
+type GeminiAnalyzerRequestBody = {
+  context?: unknown
+  deterministicReportText?: unknown
+}
+
+// POST /api/v1/console/ai-analyzer/gemini
+router.post('/ai-analyzer/gemini', async (req: Request, res: Response) => {
+  const fallbackText = (() => {
+    const body = req.body as Partial<GeminiAnalyzerRequestBody> | undefined
+    const t = body?.deterministicReportText
+    return typeof t === 'string' && t.trim().length ? t : 'No deterministic report text provided.'
+  })()
+
+  try {
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
+    if (!geminiApiKey) {
+      return res.status(200).json({ text: fallbackText, source: 'fallback' })
+    }
+
+    const model = process.env.GEMINI_MODEL?.trim() || 'gemini-1.5-flash'
+
+    const prompt = [
+      `You are a business performance analyst assistant.`,
+      `Using the deterministic report below as the factual base, rewrite it into a Gemini-style report that is clearer and more actionable.`,
+      ``,
+      `REQUIREMENTS:`,
+      `1) Produce 3 sections with exact headings:`,
+      `   - Strengths`,
+      `   - Weaknesses`,
+      `   - Improvements (next 7 days)`,
+      `2) In Strengths: cite 2–4 observations from the deterministic report.`,
+      `3) In Weaknesses: cite 2–5 improvement opportunities (what is going wrong / risk).`,
+      `4) In Improvements: list 5–8 concrete actions, each with a short “why this helps”`,
+      `5) End with a short “Success metrics” bullet list (3 metrics).`,
+      ``,
+      `DETERMINISTIC REPORT (facts):`,
+      `---`,
+      fallbackText,
+      `---`,
+      ``,
+      `If any section lacks enough data, explicitly say “Not enough data in this dataset for a confident call.”`,
+    ].join('\n')
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(
+      geminiApiKey
+    )}`
+
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        topP: 0.9,
+        maxOutputTokens: 900,
+      },
+    }
+
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!r.ok) {
+      const raw = await r.text().catch(() => '')
+      // Don’t leak provider errors to clients; fall back.
+      return res.status(200).json({ text: fallbackText, source: 'fallback' })
+    }
+
+    const data = (await r.json().catch(() => ({}))) as unknown as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    }
+
+    const text =
+      (data.candidates?.[0]?.content?.parts ?? [])
+        .map((p: { text?: string }) => p.text ?? '')
+        .join('')
+        .trim() || ''
+
+    if (!text) {
+      return res.status(200).json({ text: fallbackText, source: 'fallback' })
+    }
+
+    return res.status(200).json({ text, source: 'gemini' })
+  } catch {
+    return res.status(200).json({ text: fallbackText, source: 'fallback' })
+  }
+})
+
 export default router;
