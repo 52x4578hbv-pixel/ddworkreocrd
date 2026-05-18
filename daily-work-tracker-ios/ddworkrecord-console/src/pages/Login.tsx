@@ -40,7 +40,13 @@ export default function Login() {
       } catch (e) {
         if (cancelled) return
         setConfigStatus('error')
-        setError(e instanceof Error ? e.message : 'Failed to load Firebase config')
+        const msg = e instanceof Error ? e.message : 'Failed to load Firebase config'
+        // If backend indicates Firebase isn't configured, disable Google sign-in without showing an error banner.
+        if (msg.toLowerCase().includes('firebase is not configured')) {
+          setError(null)
+        } else {
+          setError(msg)
+        }
       }
     }
 
@@ -248,6 +254,7 @@ export default function Login() {
 
       <div style={{ marginTop: 14, color: theme.muted2, fontSize: 12.3, fontWeight: 800, lineHeight: 1.5 }}>
         {configStatus === 'loading' ? 'Loading Firebase config...' : null}
+        {configStatus === 'error' && !fbConfig ? 'Google sign-in disabled (Firebase not configured).' : null}
       </div>
     </div>
   )

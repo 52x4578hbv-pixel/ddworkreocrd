@@ -80,6 +80,19 @@ router.get('/firebase-config', async (_req: Request, res: Response) => {
     const storageBucket = process.env.FIREBASE_STORAGE_BUCKET?.trim()
     const messagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID?.trim()
 
+    const requiredKeys: Array<keyof FirebaseClientConfig> = ['apiKey', 'authDomain', 'projectId', 'appId']
+    const missing = requiredKeys.filter((k) => {
+      if (k === 'apiKey') return !process.env.FIREBASE_API_KEY?.trim()
+      if (k === 'authDomain') return !process.env.FIREBASE_AUTH_DOMAIN?.trim()
+      if (k === 'projectId') return !process.env.FIREBASE_PROJECT_ID?.trim()
+      if (k === 'appId') return !process.env.FIREBASE_APP_ID?.trim()
+      return false
+    })
+
+    if (missing.length) {
+      return res.status(200).json({ available: false, config: null })
+    }
+
     const config: FirebaseClientConfig = {
       apiKey: readEnv('FIREBASE_API_KEY'),
       authDomain: readEnv('FIREBASE_AUTH_DOMAIN'),
@@ -89,10 +102,10 @@ router.get('/firebase-config', async (_req: Request, res: Response) => {
       appId: readEnv('FIREBASE_APP_ID'),
     }
 
-    return res.status(200).json(config)
+    return res.status(200).json({ available: true, config })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Unknown error'
-    return res.status(500).json({ error: 'Failed to build firebase client config', message: msg })
+    // Never hard-fail the UI if Firebase env vars are missing.
+    return res.status(200).json({ available: false, config: null })
   }
 })
 
