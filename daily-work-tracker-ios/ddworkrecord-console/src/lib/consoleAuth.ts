@@ -70,6 +70,12 @@ export async function exchangeAdminEmailSession(email: string, password: string)
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
+    if (res.status === 404) {
+      throw new Error(
+        'Email/password login is not enabled on this backend yet (missing /api/v1/console/auth/session/email route). Please ask the app owner to deploy the latest backend, or use Google sign-in if available.'
+      )
+    }
+
     throw new Error(`Auth email session exchange failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
   }
 
