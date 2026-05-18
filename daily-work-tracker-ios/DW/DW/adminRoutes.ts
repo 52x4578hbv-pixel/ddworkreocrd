@@ -306,11 +306,45 @@ router.get('/reports/export/csv', authenticateAdmin, async (req: Request, res: R
     }
 });
 
-// Live locations (DB mode only, but cannot be tenant-safe yet)
-router.get('/live-locations', authenticateAdmin, async (_req: Request, res: Response) => {
-    return res.status(501).json({
-        error: 'Tenant-isolated live locations not implemented yet (missing tenantId in Postgres schema and missing required record shape for Firestore).',
-    });
-});
+/**
+ * Live locations for the map (DB-less tenant-safe).
+ * Uses memoryStore workdays to compute the latest known lat/lng per employee.
+ *
+ * Response shape matches console `fetchLiveLocations()`:
+ *   [{ employeeCode, location: {lat,lng} | null }, ...]
+ */
+router.get('/live-locations', authenticateAdmin, async (req: Request, res: Response) => {
+    try {
+        const tenantId = (req as any).authTenantId as string | null
+        if (!tenantId) {
+            return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+        }
+
+        const all = memoryStore.getAll(tenantId)
+
+        // Latest record first so we can fill "first seen" per employee.
+        const sorted = [...all].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+
+        const byEmployee = new Map<string, { employeeCode: string; location: { lat: number; lng: number } | null }>()
+
+        for (const record of sorted) {
+            const employeeCode = String(record.employeeId ?? '').trim()
+            if (!employeeCode) continue
+            if (byEmployee.has(employeeCode)) continue
+
+            const location = extractLatestLocation(record as any)
+            byEmployee.set(employeeCode, {
+                employeeCode,
+                location,
+            })
+        }
+
+        return res.status(200).json(Array.from(byEmployee.values()))
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('live-locations failed:', e)
+        return res.status(500).json({ error: 'Failed to fetch live locations' })
+    }
+})
 
 export default router;
