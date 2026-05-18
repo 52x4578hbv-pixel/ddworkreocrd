@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchLiveLocations } from '../lib/api'
+import { fetchLiveLocations, getAdminToken } from '../lib/api'
 import { theme } from '../lib/theme'
 
 type LiveLocation = Awaited<ReturnType<typeof fetchLiveLocations>> extends (infer U)[] ? U : never
@@ -30,7 +30,16 @@ export default function GeoMap() {
 
   useEffect(() => {
     let cancelled = false
+
     const run = async () => {
+      const token = getAdminToken()
+      if (!token) {
+        setLocations(null)
+        setError('Admin not logged in on this domain. Please open #login to get an admin token.')
+        setBusy(false)
+        return
+      }
+
       setBusy(true)
       setError(null)
       try {
@@ -39,12 +48,18 @@ export default function GeoMap() {
       } catch (e) {
         if (cancelled) return
         const message = e instanceof Error ? e.message : 'Failed to fetch live locations.'
-        setError(message)
+
+        if (message.toLowerCase().includes('unauthorized') && message.toLowerCase().includes('missing bearer')) {
+          setError('Admin token missing. Please open #login to log in on this Azure domain.')
+        } else {
+          setError(message)
+        }
         setLocations(null)
       } finally {
         if (!cancelled) setBusy(false)
       }
     }
+
     void run()
     return () => {
       cancelled = true
@@ -119,6 +134,28 @@ export default function GeoMap() {
               }}
             >
               {error}
+            </div>
+
+            <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.hash = '#login'
+                }}
+                style={{
+                  padding: '10px 14px',
+                  border: `2px solid ${theme.text}`,
+                  background: theme.text,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 1100,
+                  borderRadius: theme.radiusSm,
+                  whiteSpace: 'nowrap',
+                  boxShadow: `3px 3px 0 ${theme.text}`,
+                }}
+              >
+                Go to Login
+              </button>
             </div>
           </div>
         ) : null}
