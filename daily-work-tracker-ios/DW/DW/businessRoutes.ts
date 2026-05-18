@@ -4,6 +4,7 @@ import { memoryStore } from './memoryStore'
 import { businessMemoryStore } from './businessMemoryStore'
 import { getFirestore } from './firebaseAdmin'
 
+const allowDbLessBusiness = process.env.ALLOW_DBLESS_BUSINESS === 'true'
 const router = express.Router()
 // NOTE: business routes are mounted under /api/v1/business in server.ts. This comment is a no-op used to force a backend redeploy.
 
@@ -38,7 +39,7 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     if (!doc.exists) {
       // Fallback: code may have been minted via in-memory store (DB-less / partial config)
       const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-      if (tenantId) {
+      if (tenantId && allowDbLessBusiness) {
         ;(req as any).authTenantId = tenantId
         return next()
       }
@@ -48,7 +49,7 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     const d = doc.data() as AccessCodeRecord
     if (!d?.tenantId) {
       const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-      if (tenantId) {
+      if (tenantId && allowDbLessBusiness) {
         ;(req as any).authTenantId = tenantId
         return next()
       }
@@ -58,17 +59,17 @@ const authenticateBusinessCode = async (req: Request, res: Response, next: NextF
     ;(req as any).authTenantId = d.tenantId
     return next()
   } catch (err) {
-    // Firebase not configured in this environment — fall back to in-memory business codes.
+    // Firebase not configured in this environment.
+    // Only allow in-memory fallback when explicitly enabled.
     const tenantId = businessMemoryStore.getTenantIdByAccessCode(code)
-    if (tenantId) {
+    if (tenantId && allowDbLessBusiness) {
       ;(req as any).authTenantId = tenantId
       return next()
     }
 
     // eslint-disable-next-line no-console
     console.error('authenticateBusinessCode failed:', err)
-    // If the code can't be resolved in fallback memory store, treat it as invalid
-    // (UI expects "Code not valid", not a 500).
+    // Treat it as invalid when fallback is disabled.
     return res.status(403).json({ error: 'Forbidden: Invalid access code.' })
   }
 }
