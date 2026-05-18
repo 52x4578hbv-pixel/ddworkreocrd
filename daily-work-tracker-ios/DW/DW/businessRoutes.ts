@@ -364,6 +364,105 @@ router.get('/stats/:period', authenticateBusinessCode, async (req: Request, res:
   }
 })
 
+// Live locations for the Geo Map (tenant-safe via business code).
+// Response shape matches console `fetchLiveLocations()`:
+//   [{ employeeCode, location: {lat,lng} | null }, ...]
+router.get('/live-locations', authenticateBusinessCode, async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).authTenantId as string | null
+    if (!tenantId) return res.status(403).json({ error: 'Forbidden: Missing tenantId claim.' })
+
+    const extractLatestLocation = (rawData: any): { lat: number; lng: number } | null => {
+      if (!rawData) return null
+
+      // Prefer dayEndLocation when valid
+      if (rawData.dayEndLocation && rawData.dayEndLocation.lat !== 0 && rawData.dayEndLocation.lng !== 0) {
+        return rawData.dayEndLocation
+      }
+
+      let latestTime: Date | null = null
+      let latestLocation: { lat: number; lng: number } | null = null
+
+      const segments = [
+        ...(rawData.workshops || []),
+        ...(rawData.travels || []),
+        ...(rawData.suppliers || []),
+        ...(rawData.fuels || []),
+        ...(rawData.jobs || []),
+        ...(rawData.privateSegments || []),
+      ]
+
+      for (const segment of segments) {
+        let segmentEndTime: Date | null = null
+        let segmentEndLocation: { lat: number; lng: number } | null = null
+
+        if (segment.endTime) {
+          segmentEndTime = new Date(segment.endTime)
+          segmentEndLocation = segment.endLocation || segment.departureLocation
+        } else if (segment.departureTime) {
+          segmentEndTime = new Date(segment.departureTime)
+          segmentEndLocation = segment.departureLocation
+        } else if (segment.startTime) {
+          segmentEndTime = new Date(segment.startTime)
+          segmentEndLocation = segment.startLocation || segment.arrivalLocation
+        }
+
+        if (
+          segmentEndTime &&
+          segmentEndLocation &&
+          segmentEndLocation.lat !== 0 &&
+          segmentEndLocation.lng !== 0
+        ) {
+          if (!latestTime || segmentEndTime > latestTime) {
+            latestTime = segmentEndTime
+            latestLocation = segmentEndLocation
+          }
+        }
+      }
+
+      if (latestLocation) return latestLocation
+
+      if (rawData.dayStartLocation && rawData.dayStartLocation.lat !== 0 && rawData.dayStartLocation.lng !== 0) {
+        return rawData.dayStartLocation
+      }
+
+      return null
+    }
+
+    // Prefer Firestore workdays if configured; fallback to in-memory.
+    let all: any[] = []
+    try {
+      const records = await pickTenantScopedFirestoreWorkdays(tenantId)
+      if (records.length) all = records as any
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('business live-locations firestore read failed; using memoryStore:', e)
+    }
+
+    if (!all.length) {
+      all = memoryStore.getAll(tenantId) as any
+    }
+
+    const sorted = [...all].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+
+    const byEmployee = new Map<string, { employeeCode: string; location: { lat: number; lng: number } | null }>()
+    for (const record of sorted) {
+      const employeeCode = String(record.employeeId ?? record.employee_code ?? '').trim()
+      if (!employeeCode) continue
+      if (byEmployee.has(employeeCode)) continue
+
+      const location = extractLatestLocation(record)
+      byEmployee.set(employeeCode, { employeeCode, location })
+    }
+
+    return res.status(200).json(Array.from(byEmployee.values()))
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('business live-locations failed:', e)
+    return res.status(500).json({ error: 'Failed to fetch live locations' })
+  }
+})
+
 // Debug fallback: if `/api/v1/business/*` is mounted but a specific route isn't,
 // this will confirm businessRoutes is live and show the requested path.
 router.use((req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchLiveLocations, getAdminToken } from '../lib/api'
+import { fetchBusinessLiveLocations, getBusinessCode } from '../lib/businessApi'
 import { theme } from '../lib/theme'
 
 type LiveLocation = Awaited<ReturnType<typeof fetchLiveLocations>> extends (infer U)[] ? U : never
@@ -25,6 +26,7 @@ function projectEquirectangular(lat: number, lng: number, width: number, height:
 export default function GeoMap() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorActionHash, setErrorActionHash] = useState<string | null>(null)
   const [locations, setLocations] = useState<LiveLocation[] | null>(null)
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
 
@@ -32,32 +34,54 @@ export default function GeoMap() {
     let cancelled = false
 
     const run = async () => {
-      const token = getAdminToken()
-      if (!token) {
-        setLocations(null)
-        setError('Admin not logged in on this domain. Please open #login to get an admin token.')
-        setBusy(false)
+      const adminToken = getAdminToken()
+      const businessCode = getBusinessCode()
+
+      // Prefer admin mode when available.
+      if (adminToken) {
+        setBusy(true)
+        setError(null)
+        setErrorActionHash(null)
+        try {
+          const res = await fetchLiveLocations()
+          if (!cancelled) setLocations(res)
+        } catch (e) {
+          if (cancelled) return
+          const message = e instanceof Error ? e.message : 'Failed to fetch live locations.'
+          setError(message)
+          setErrorActionHash('#login')
+          setLocations(null)
+        } finally {
+          if (!cancelled) setBusy(false)
+        }
         return
       }
 
-      setBusy(true)
-      setError(null)
-      try {
-        const res = await fetchLiveLocations()
-        if (!cancelled) setLocations(res)
-      } catch (e) {
-        if (cancelled) return
-        const message = e instanceof Error ? e.message : 'Failed to fetch live locations.'
-
-        if (message.toLowerCase().includes('unauthorized') && message.toLowerCase().includes('missing bearer')) {
-          setError('Admin token missing. Please open #login to log in on this Azure domain.')
-        } else {
+      // Business mode when business code exists.
+      if (businessCode) {
+        setBusy(true)
+        setError(null)
+        setErrorActionHash(null)
+        try {
+          const res = await fetchBusinessLiveLocations()
+          if (!cancelled) setLocations(res)
+        } catch (e) {
+          if (cancelled) return
+          const message = e instanceof Error ? e.message : 'Failed to fetch live locations.'
           setError(message)
+          setErrorActionHash('#business-login')
+          setLocations(null)
+        } finally {
+          if (!cancelled) setBusy(false)
         }
-        setLocations(null)
-      } finally {
-        if (!cancelled) setBusy(false)
+        return
       }
+
+      // Neither token exists.
+      setLocations(null)
+      setError('Not logged in. Please open #business-login and enter your business code.')
+      setErrorActionHash('#business-login')
+      setBusy(false)
     }
 
     void run()
@@ -136,27 +160,29 @@ export default function GeoMap() {
               {error}
             </div>
 
-            <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.hash = '#login'
-                }}
-                style={{
-                  padding: '10px 14px',
-                  border: `2px solid ${theme.text}`,
-                  background: theme.text,
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 1100,
-                  borderRadius: theme.radiusSm,
-                  whiteSpace: 'nowrap',
-                  boxShadow: `3px 3px 0 ${theme.text}`,
-                }}
-              >
-                Go to Login
-              </button>
-            </div>
+            {errorActionHash ? (
+              <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.hash = errorActionHash
+                  }}
+                  style={{
+                    padding: '10px 14px',
+                    border: `2px solid ${theme.text}`,
+                    background: theme.text,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontWeight: 1100,
+                    borderRadius: theme.radiusSm,
+                    whiteSpace: 'nowrap',
+                    boxShadow: `3px 3px 0 ${theme.text}`,
+                  }}
+                >
+                  {errorActionHash === '#business-login' ? 'Go to Business Login' : 'Go to Login'}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

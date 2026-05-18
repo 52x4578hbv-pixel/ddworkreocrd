@@ -25,7 +25,7 @@ type BusinessStatsResponse = {
   employees?: unknown[]
 }
 
-function getBusinessCode(): string | null {
+export function getBusinessCode(): string | null {
   return localStorage.getItem('ddworkrecord_business_code')
 }
 
@@ -89,6 +89,11 @@ type MintWorkerSecretsResponse = {
   }[]
 }
 
+export type LiveLocation = {
+  employeeCode: string
+  location: { lat: number; lng: number } | null
+}
+
 export async function mintWorkerSecrets(employeeCodes: string[]) {
   const res = await authedFetch('/api/v1/business/mint-worker-secrets', {
     method: 'POST',
@@ -108,4 +113,23 @@ export async function mintWorkerSecrets(employeeCodes: string[]) {
   }
 
   return (await res.json()) as MintWorkerSecretsResponse
+}
+
+export async function fetchBusinessLiveLocations(): Promise<LiveLocation[]> {
+  const res = await authedFetch('/api/v1/business/live-locations', { method: 'GET' })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`live-locations failed: ${res.status}${body ? ` - ${body.slice(0, 200)}` : ''}`)
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `live-locations failed: expected JSON but got ${contentType || 'unknown'}${body ? ` - ${body.slice(0, 200)}` : ''}`
+    )
+  }
+
+  return (await res.json()) as LiveLocation[]
 }
