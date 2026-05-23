@@ -1,126 +1,55 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { theme } from './lib/theme'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import AddDailyRecord from './pages/AddDailyRecord'
-import RecordsList from './pages/RecordsList'
-import Settings from './pages/Settings'
-import LocalPreviewShell from './pages/LocalPreviewShell'
-import EmployeePage from './pages/EmployeePage'
-import RecordDetail from './pages/RecordDetail'
-import DummyLocalPreview from './pages/DummyLocalPreview'
+
 import JobsHub from './pages/JobsHub'
 import SuppliersHub from './pages/SuppliersHub'
 import FuelStopsList from './pages/FuelStopsList'
 import BusinessRegister from './pages/BusinessRegister'
 import BusinessLogin from './pages/BusinessLogin'
-import BusinessDashboard from './pages/BusinessDashboard'
 import Home from './pages/Home'
-import AssistantPage from './pages/AssistantPage'
-import AIAnalyzer from './pages/AIAnalyzer'
-import GeoMap from './pages/GeoMap'
-import Timesheet from './pages/Timesheet'
-import Automation from './pages/Automation'
 
 // Routes are based on the URL hash (no React Router in this project)
-type Route =
-  | 'home'
-  | 'login'
-  | 'dashboard'
-  | 'add'
-  | 'records'
-  | 'settings'
-  | 'local-preview'
-  | 'dummy-local-preview'
-  | 'jobs'
-  | 'jobs-list' // legacy
-  | 'suppliers'
-  | 'supplier-list' // legacy
-  | 'supplier-reports' // legacy
-  | 'fuel-list'
-  | 'ai-analyzer'
-  | 'geo-map'
-  | 'business-register'
-  | 'business-login'
-  | 'business-dashboard'
-  | 'timesheet'
-  | 'automation'
-  | string // Allow dynamic sub-routes like employee/EMP-001
+type Route = 'home' | 'business-register' | 'business-login' | 'jobs' | 'suppliers' | 'fuel-list'
+
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
 
 function getRouteFromHash(): Route {
   const raw = window.location.hash.replace('#', '').replace(/^\//, '')
   const h = raw.split('?')[0]
 
-  const safeGetItem = (key: string): string | null => {
-    try {
-      return localStorage.getItem(key)
-    } catch {
-      return null
-    }
-  }
+  const businessCode = safeGetItem('ddworkrecord_business_code')
 
-  const adminToken = safeGetItem('ddworkrecord_admin_token')
-
-  // Priority redirects when no hash is provided (public landing page)
+  // Public landing page when no hash is provided
   if (!h) {
-    if (adminToken) return 'dashboard'
-    return 'home'
+    return businessCode ? 'jobs' : 'home'
   }
 
-  if (h === 'add') return 'add'
-  if (h === 'records') return 'records'
-  if (h === 'settings') return 'settings'
-  if (h === 'admin') return 'settings' // removed tab; keep deep-link safe
-  if (h === 'reports') return 'jobs' // removed tab; keep deep-link safe
-
-  if (h === 'login') return 'login'
-  if (h === 'dashboard') return 'dashboard'
-  if (h === 'local-preview') return 'local-preview'
-  if (h === 'dummy-local-preview') return 'dummy-local-preview'
-
-  if (h === 'jobs') return 'jobs'
-  if (h === 'jobs-list') return 'jobs'
-
-  if (h === 'supplier-list') return 'suppliers'
-  if (h === 'supplier-reports') return 'suppliers'
-  if (h === 'suppliers') return 'suppliers'
-
-  if (h === 'fuel-list') return 'fuel-list'
-  if (h === 'ai-analyzer') return 'ai-analyzer'
-  if (h === 'geo-map') return 'geo-map'
-  if (h === 'timesheet') return 'timesheet'
-  if (h === 'automation') return 'automation'
+  // Legacy/extra redirects: treat as console
+  if (h === 'dashboard' || h === 'business-dashboard' || h === 'jobs-list') return 'jobs'
 
   if (h === 'business-register') return 'business-register'
   if (h === 'business-login') return 'business-login'
-  if (h === 'business-dashboard') return 'business-dashboard'
+  if (h === 'jobs') return 'jobs'
+  if (h === 'suppliers' || h === 'supplier-list' || h === 'supplier-reports') return 'suppliers'
+  if (h === 'fuel-list' || h === 'fuel') return 'fuel-list'
 
-  if (h.startsWith('employee/')) return h
-  if (h.startsWith('assistant/')) return h
-  if (h.startsWith('record/')) return h
-
-  // Fallback (unknown hash)
-  return 'home'
+  // Unknown hash => stay on landing
+  return businessCode ? 'jobs' : 'home'
 }
 
 function Navigation({ current }: { current: Route }) {
+  const businessCode = safeGetItem('ddworkrecord_business_code')
+
   const links = [
-    { label: 'Dashboard', r: 'dashboard', h: '#dashboard' },
-    { label: 'Add Record', r: 'add', h: '#add' },
-    { label: 'Records', r: 'records', h: '#records' },
-
-    // Combined tabs
-    { label: 'Jobs', r: 'jobs', h: '#jobs' },
-    { label: 'Suppliers', r: 'suppliers', h: '#suppliers' },
-    { label: 'Fuel Stops', r: 'fuel-list', h: '#fuel-list' },
-
-    // New tab
-    { label: 'AI Analyzer', r: 'ai-analyzer', h: '#ai-analyzer' },
-    { label: 'Geo Map', r: 'geo-map', h: '#geo-map' },
-    { label: 'Timesheet', r: 'timesheet', h: '#timesheet' },
-    { label: 'Automation', r: 'automation', h: '#automation' },
-
-    { label: 'Settings', r: 'settings', h: '#settings' },
+    { label: 'Jobs', r: 'jobs' as const, h: '#jobs' },
+    { label: 'Suppliers', r: 'suppliers' as const, h: '#suppliers' },
+    { label: 'Fuel', r: 'fuel-list' as const, h: '#fuel-list' },
   ]
 
   return (
@@ -142,7 +71,7 @@ function Navigation({ current }: { current: Route }) {
     >
       <div style={{ fontWeight: 1100, fontSize: 18, marginRight: 10 }}>DD Console</div>
       {links.map((l) => {
-        const isActive = current.startsWith(l.r)
+        const isActive = current === l.r
         return (
           <a
             key={l.h}
@@ -155,17 +84,20 @@ function Navigation({ current }: { current: Route }) {
               opacity: isActive ? 1 : 0.9,
               borderBottom: isActive ? `2px solid ${theme.accent}` : '2px solid transparent',
               paddingBottom: 2,
+              whiteSpace: 'nowrap',
             }}
           >
             {l.label}
           </a>
         )
       })}
+
       <a
         href="#home"
         onClick={() => {
-          localStorage.removeItem('ddworkrecord_admin_token')
           localStorage.removeItem('ddworkrecord_business_code')
+          localStorage.removeItem('ddworkrecord_business_country')
+          localStorage.removeItem('ddworkrecord_admin_token')
         }}
         style={{
           marginLeft: 'auto',
@@ -174,6 +106,9 @@ function Navigation({ current }: { current: Route }) {
           fontSize: 13,
           fontWeight: 950,
           borderBottom: `2px solid transparent`,
+          whiteSpace: 'nowrap',
+          opacity: businessCode ? 1 : 0.7,
+          pointerEvents: businessCode ? 'auto' : 'none',
         }}
       >
         Logout
@@ -192,45 +127,38 @@ export default function App() {
   }, [])
 
   const content = useMemo(() => {
-    if (route === 'dashboard') return <Dashboard />
-    if (route === 'add') return <AddDailyRecord />
-    if (route === 'records') return <RecordsList />
-    if (route === 'settings') return <Settings />
-
-    if (route === 'local-preview') return <LocalPreviewShell />
-    if (route === 'dummy-local-preview') return <DummyLocalPreview />
-
-    if (route === 'jobs' || route === 'jobs-list') return <JobsHub />
-    if (route === 'suppliers' || route === 'supplier-list' || route === 'supplier-reports') return <SuppliersHub />
-
-    if (route === 'fuel-list') return <FuelStopsList />
-
-    if (route === 'ai-analyzer') return <AIAnalyzer />
-
-    if (route === 'geo-map') return <GeoMap />
-    if (route === 'timesheet') return <Timesheet />
-    if (route === 'automation') return <Automation />
-
-    if (route.startsWith('employee/')) return <EmployeePage />
-    if (route.startsWith('assistant/')) return <AssistantPage />
-    if (route.startsWith('record/')) return <RecordDetail />
-
-    if (route === 'business-register') return <BusinessRegister />
-    if (route === 'business-login') return <BusinessLogin />
-    if (route === 'business-dashboard') return <BusinessDashboard />
+    const suspenseFallback = <div style={{ padding: 24, fontWeight: 900 }}>Loading…</div>
 
     if (route === 'home') return <Home />
-    return <Login />
+    if (route === 'business-register') return <BusinessRegister />
+    if (route === 'business-login') return <BusinessLogin />
+
+    // Console tabs require a business code (fallback already handled by getRouteFromHash)
+    if (route === 'jobs')
+      return (
+        <Suspense fallback={suspenseFallback}>
+          <JobsHub />
+        </Suspense>
+      )
+
+    if (route === 'suppliers')
+      return (
+        <Suspense fallback={suspenseFallback}>
+          <SuppliersHub />
+        </Suspense>
+      )
+
+    if (route === 'fuel-list')
+      return (
+        <Suspense fallback={suspenseFallback}>
+          <FuelStopsList />
+        </Suspense>
+      )
+
+    return <Home />
   }, [route])
 
-  const showNav =
-    route !== 'login' &&
-    route !== 'home' &&
-    route !== 'local-preview' &&
-    route !== 'dummy-local-preview' &&
-    route !== 'business-register' &&
-    route !== 'business-login' &&
-    route !== 'business-dashboard'
+  const showNav = route === 'jobs' || route === 'suppliers' || route === 'fuel-list'
 
   return (
     <div style={{ minHeight: '100vh', background: theme.pageBg }}>

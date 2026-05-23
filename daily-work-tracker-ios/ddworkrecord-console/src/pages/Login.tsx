@@ -17,6 +17,7 @@ function safeSetLocalToken(token: string) {
 export default function Login() {
   const [fbConfig, setFbConfig] = useState<FirebaseConfig | null>(null)
   const [configStatus, setConfigStatus] = useState<AuthStatus>('idle')
+  const [firebaseUnavailable, setFirebaseUnavailable] = useState<boolean>(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,6 +36,7 @@ export default function Login() {
       try {
         const cfg = await fetchFirebaseClientConfig()
         if (cancelled) return
+        setFirebaseUnavailable(false)
         setFbConfig(cfg as unknown as FirebaseConfig)
         setConfigStatus('success')
       } catch (e) {
@@ -43,8 +45,12 @@ export default function Login() {
         const msg = e instanceof Error ? e.message : 'Failed to load Firebase config'
         // If backend indicates Firebase isn't configured, disable Google sign-in without showing an error banner.
         if (msg.toLowerCase().includes('firebase is not configured')) {
+          setFirebaseUnavailable(true)
+          setFbConfig(null)
           setError(null)
         } else {
+          setFirebaseUnavailable(false)
+          setFbConfig(null)
           setError(msg)
         }
       }
@@ -65,6 +71,13 @@ export default function Login() {
 
   const redirectToDashboard = () => {
     window.location.hash = '#dashboard'
+  }
+
+  const devContinue = () => {
+    // Backend dev bypass accepts any non-empty Bearer token in DEV_BYPASS_ADMIN_CLAIMS mode.
+    // This keeps the console usable in "no Firebase" local/VM setups.
+    safeSetLocalToken('dev-token')
+    redirectToDashboard()
   }
 
   const finishIdTokenLogin = async (idToken: string) => {
@@ -154,6 +167,29 @@ export default function Login() {
         >
           {status === 'loading' ? 'Signing in...' : 'Sign in with Google'}
         </button>
+
+        {firebaseUnavailable ? (
+          <button
+            onClick={() => devContinue()}
+            disabled={status === 'loading'}
+            style={{
+              marginTop: 12,
+              width: '100%',
+              padding: '12px 14px',
+              fontWeight: 1000,
+              border: `2px solid ${theme.text}`,
+              background: theme.surface,
+              color: theme.text,
+              cursor: status !== 'loading' ? 'pointer' : 'not-allowed',
+              borderRadius: theme.radiusSm,
+              boxShadow: `3px 3px 0 ${theme.text}`,
+              whiteSpace: 'nowrap',
+            }}
+            title="Backend has no Firebase configured. Uses backend DEV_BYPASS_ADMIN_CLAIMS mode."
+          >
+            Continue without Firebase
+          </button>
+        ) : null}
       </div>
 
       <div

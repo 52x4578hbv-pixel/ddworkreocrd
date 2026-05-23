@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import Dashboard from './Dashboard'
+import DashboardLocalPreview from './DashboardLocalPreview'
 import RecordsList from './RecordsList'
 import AddDailyRecord from './AddDailyRecord'
 import JobsList from './JobsList'
@@ -277,7 +277,7 @@ export default function LocalPreviewShell() {
 
       {seedReady ? (
         <div style={{ padding: 0 }}>
-          {tab === 'dashboard' ? <Dashboard key={seedVersion} /> : null}
+          {tab === 'dashboard' ? <DashboardLocalPreview key={seedVersion} /> : null}
           {tab === 'records' ? <RecordsList key={seedVersion} /> : null}
           {tab === 'jobs' ? <JobsHub key={seedVersion} /> : null}
           {tab === 'supplier' ? <SuppliersHub key={seedVersion} /> : null}

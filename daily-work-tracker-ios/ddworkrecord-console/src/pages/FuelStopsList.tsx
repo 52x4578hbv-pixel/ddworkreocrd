@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { getLocalPreviewWorkdays, type FuelStop } from '../lib/localPreviewData'
-import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
+import { useEffect, useMemo, useState } from 'react'
+import type { FuelStop, LocalPreviewWorkday } from '../lib/localPreviewData'
+import { businessWorkdayToLocalPreviewWorkday } from '../lib/businessToLocalPreview'
+import { fetchBusinessWorkdays, getBusinessCode } from '../lib/businessApi'
 import { theme } from '../lib/theme'
 
 function includesCI(haystack: string, needle: string): boolean {
@@ -25,15 +26,55 @@ function ReceiptCount({ ids }: { ids: string[] }) {
 }
 
 export default function FuelStopsList() {
-  const EMPLOYEE_COUNT = getDefaultEmployeeCount()
-  const employeeCodes = useMemo(() => getEmployeeCodes(EMPLOYEE_COUNT), [EMPLOYEE_COUNT])
+  const [liveWorkdays, setLiveWorkdays] = useState<LocalPreviewWorkday[]>([])
+  const [employeeCodes, setEmployeeCodes] = useState<string[]>([])
 
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all')
   const [fromDate, setFromDate] = useState<string>('') // YYYY-MM-DD
   const [toDate, setToDate] = useState<string>('') // YYYY-MM-DD
   const [fuelStationSearch, setFuelStationSearch] = useState<string>('') // substring
 
-  const workdays = useMemo(() => getLocalPreviewWorkdays(), [])
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const businessCode = getBusinessCode()
+        if (!businessCode) {
+          setLiveWorkdays([])
+          setEmployeeCodes([])
+          window.location.hash = '#business-login'
+          return
+        }
+
+        const now = new Date()
+        const endDate = now.toISOString().slice(0, 10)
+        const start = new Date(now)
+        start.setUTCDate(start.getUTCDate() - 90)
+        const startDate = start.toISOString().slice(0, 10)
+
+        const businessWorkdays = await fetchBusinessWorkdays({
+          range: { startDate, endDate },
+        })
+
+        const mapped = (Array.isArray(businessWorkdays) ? businessWorkdays : []).map((w) =>
+          businessWorkdayToLocalPreviewWorkday(w),
+        )
+
+        const uniq = new Set<string>()
+        for (const w of mapped) {
+          if (w.employeeCode) uniq.add(w.employeeCode)
+        }
+
+        setLiveWorkdays(mapped as unknown as LocalPreviewWorkday[])
+        setEmployeeCodes(Array.from(uniq).sort((a, b) => a.localeCompare(b)))
+      } catch {
+        // ignore (UI will just show empty until data arrives)
+      }
+    }
+
+    void run()
+  }, [])
+
+  const workdays = liveWorkdays
   const rows = useMemo(() => {
     const from = fromDate.trim()
     const to = toDate.trim()
@@ -57,13 +98,13 @@ export default function FuelStopsList() {
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Fuel Stops (Sandbox)</h1>
-          <p style={{ marginTop: 8, color: '#475569', fontWeight: 800, fontSize: 12 }}>
-            Mirrors iOS FuelScreen stop-level fields (per-workday rows).
-          </p>
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>Fuel Stops (Live)</h1>
+            <p style={{ marginTop: 8, color: '#475569', fontWeight: 800, fontSize: 12 }}>
+              Mirrors backend business workdays: /api/v1/business/workdays.
+            </p>
+          </div>
 
         <div style={{ padding: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, minWidth: 'min(240px, 100%)' }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Total fuel stops</div>

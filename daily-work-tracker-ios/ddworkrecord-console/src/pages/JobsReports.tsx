@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { type Period, API_BASE_URL } from '../lib/api'
-import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
+import { getLocalPreviewWorkdays, type LocalPreviewWorkday } from '../lib/localPreviewData'
+import { isLocalPreviewMode } from '../lib/localPreview'
 import { theme } from '../lib/theme'
 
 type JobStatus = 'complete' | 'return-required'
@@ -23,6 +24,17 @@ function addDays(d: Date, days: number): Date {
   const x = new Date(d)
   x.setDate(x.getDate() + days)
   return x
+}
+
+async function fetchCloudWorkdays(token: string, base: string): Promise<LocalPreviewWorkday[]> {
+  const res = await fetch(`${base}/api/v1/console/workdays`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok) return []
+  const data = await res.json()
+  const list = Array.isArray(data) ? data : data?.workdays ?? []
+  return list as unknown as LocalPreviewWorkday[]
 }
 
 async function fetchXlsxExport(params: { startDate: string; endDate: string }, token: string | null) {
@@ -50,7 +62,23 @@ async function fetchXlsxExport(params: { startDate: string; endDate: string }, t
 
 export default function JobsReports() {
   const [period, setPeriod] = useState<Period>('week')
-  const workdays = getLocalPreviewWorkdays()
+  const isLocal = isLocalPreviewMode()
+
+  const [liveWorkdays, setLiveWorkdays] = useState<LocalPreviewWorkday[]>([])
+
+  useEffect(() => {
+    if (isLocal) return
+
+    const token = localStorage.getItem('ddworkrecord_admin_token')
+    if (!token) return
+
+    const base = API_BASE_URL?.trim() || ''
+    void fetchCloudWorkdays(token, base).then(setLiveWorkdays)
+  }, [isLocal])
+
+  const workdays = useMemo(() => {
+    return isLocal ? getLocalPreviewWorkdays() : liveWorkdays
+  }, [isLocal, liveWorkdays])
 
   const today = useMemo(() => new Date(), [])
   const start = useMemo(() => {
@@ -137,7 +165,7 @@ export default function JobsReports() {
         <div>
           <h1 style={{ margin: 0, color: theme.text }}>Jobs Reports</h1>
           <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850, fontSize: 12 }}>
-            {period.toUpperCase()} summary computed from local preview data
+            {period.toUpperCase()} summary computed from {isLocal ? 'local preview data' : 'cloud workdays'}
           </p>
         </div>
 
@@ -156,6 +184,7 @@ export default function JobsReports() {
                 fontWeight: 1000,
                 borderRadius: theme.radiusSm,
                 boxShadow: `3px 3px 0 ${theme.text}`,
+                whiteSpace: 'nowrap',
               }}
             >
               {p.toUpperCase()}
@@ -202,9 +231,11 @@ export default function JobsReports() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, color: theme.muted2, fontWeight: 900, fontSize: 12 }}>
-        Note: local preview “job hours” use job-segment start/end times (template data).
-      </div>
+      {isLocal ? (
+        <div style={{ marginTop: 14, color: theme.muted2, fontWeight: 800, fontSize: 12 }}>
+          Note: local preview “job hours” use job-segment start/end times (template data).
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 18, padding: 14, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface }}>
         <div style={{ fontWeight: 1000, color: theme.text }}>Export to Excel (XLSX)</div>

@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { LocalPreviewWorkday, SupplierStop } from '../lib/localPreviewData'
 import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
 import { getLocalPreviewWorkdays } from '../lib/localPreviewData'
+import { isLocalPreviewMode } from '../lib/localPreview'
 import { theme } from '../lib/theme'
 import { buildAiResearchReport } from '../lib/aiAnalyzerReport'
 import { fetchGeminiAnalyzerReport } from '../lib/geminiAnalyzer'
+import AiChatPanel from './AiChatPanel'
 
 type Focus = 'report' | 'jobs' | 'expenses'
 
@@ -26,6 +28,7 @@ function getTopSupplier(stops: SupplierStop[]): { supplierName: string; amountSp
     const name = s.supplierName?.trim() || 'Unknown'
     map.set(name, (map.get(name) ?? 0) + (Number.isFinite(s.amountSpent) ? s.amountSpent : 0))
   }
+
   let best: { supplierName: string; amountSpent: number } | null = null
   for (const [supplierName, amountSpent] of map.entries()) {
     if (!best || amountSpent > best.amountSpent) best = { supplierName, amountSpent }
@@ -49,9 +52,10 @@ export default function AIAnalyzer() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all')
   const [jobIdSearch, setJobIdSearch] = useState<string>('')
   const [supplierSearch, setSupplierSearch] = useState<string>('')
-  const [minHours, setMinHours] = useState<string>('') // numeric input
+  const [minHours, setMinHours] = useState<string>('')
 
-  const workdays = useMemo(() => getLocalPreviewWorkdays(), [])
+  const isLocal = isLocalPreviewMode()
+  const workdays = useMemo(() => (isLocal ? getLocalPreviewWorkdays() : []), [isLocal])
   const minHoursNum = useMemo(() => safeNumberOrNull(minHours), [minHours])
 
   const filtered = useMemo(() => {
@@ -108,9 +112,11 @@ export default function AIAnalyzer() {
     for (const w of filtered) {
       const key = w.jobIdNumber || '—'
       const cur = map.get(key) ?? { completeHours: 0, returnHours: 0, count: 0 }
+
       cur.count += 1
       if (w.jobStatus === 'complete') cur.completeHours += Number.isFinite(w.jobHours) ? w.jobHours : 0
       if (w.jobStatus === 'return-required') cur.returnHours += Number.isFinite(w.jobHours) ? w.jobHours : 0
+
       map.set(key, cur)
     }
 
@@ -138,7 +144,10 @@ export default function AIAnalyzer() {
     }
   }, [filtered, insights, jobBreakdown, selectedEmployee, jobIdSearch, supplierSearch, minHoursNum])
 
-  const deterministicReportText = useMemo(() => buildAiResearchReport(reportContext), [reportContext])
+  const deterministicReportText = useMemo(() => {
+    if (!isLocal) return ''
+    return buildAiResearchReport(reportContext)
+  }, [isLocal, reportContext])
 
   const [aiReportText, setAiReportText] = useState<string>(deterministicReportText)
   const [aiReportSource, setAiReportSource] = useState<'none' | 'gemini' | 'fallback'>('none')
@@ -149,6 +158,9 @@ export default function AIAnalyzer() {
     let cancelled = false
 
     const run = async () => {
+      if (!isLocal) return
+      if (!deterministicReportText.trim()) return
+
       setAiBusy(true)
       setAiError(null)
 
@@ -177,7 +189,20 @@ export default function AIAnalyzer() {
     return () => {
       cancelled = true
     }
-  }, [reportContext, deterministicReportText])
+  }, [isLocal, reportContext, deterministicReportText])
+
+  useEffect(() => {
+    if (!isLocal) {
+      setAiReportText('')
+      setAiReportSource('none')
+      setAiError(null)
+      setAiBusy(false)
+    } else {
+      // Keep UI initialized from deterministic facts (before Gemini completes).
+      setAiReportText(deterministicReportText)
+      setAiReportSource('none')
+    }
+  }, [isLocal, deterministicReportText])
 
   const reportTitle = useMemo(() => {
     const parts: string[] = []
@@ -203,7 +228,7 @@ export default function AIAnalyzer() {
         <div>
           <h1 style={{ margin: 0, color: theme.text }}>AI Analyzer</h1>
           <p style={{ marginTop: 8, color: theme.muted, fontWeight: 850, fontSize: 12 }}>
-            “Research + improvement report” over the local preview dataset (with filters).
+            {isLocal ? '“Research + improvement report” over the sandbox dataset (with filters).' : 'Live mode: AI Analyzer dataset is disabled.'}
           </p>
         </div>
 
@@ -224,6 +249,7 @@ export default function AIAnalyzer() {
                 boxShadow: focus === f ? `3px 3px 0 ${theme.text}` : undefined,
                 whiteSpace: 'nowrap',
               }}
+              disabled={!isLocal && f !== 'report'}
             >
               {f === 'report' ? 'Research report' : f === 'jobs' ? 'Jobs insights' : 'Expense highlights'}
             </button>
@@ -276,6 +302,7 @@ export default function AIAnalyzer() {
                 background: '#fff',
                 color: theme.text,
               }}
+              disabled={!isLocal}
             />
           </div>
         </div>
@@ -297,6 +324,7 @@ export default function AIAnalyzer() {
                 background: '#fff',
                 color: theme.text,
               }}
+              disabled={!isLocal}
             />
           </div>
         </div>
@@ -319,6 +347,7 @@ export default function AIAnalyzer() {
                 background: '#fff',
                 color: theme.text,
               }}
+              disabled={!isLocal}
             />
           </div>
         </div>
@@ -392,16 +421,14 @@ export default function AIAnalyzer() {
                 border: `1px solid ${theme.borderSoft}`,
                 fontSize: 12,
                 lineHeight: 1.5,
-                maxHeight: 560,
+                maxHeight: isLocal ? 320 : 560,
                 overflow: 'auto',
               }}
             >
               {aiReportText}
-            {aiError ? (
-              <div style={{ marginTop: 8, color: theme.error, fontWeight: 900, fontSize: 12 }}>
-                Gemini fallback used. {aiError}
-              </div>
-            ) : null}
+              {aiError ? (
+                <div style={{ marginTop: 8, color: theme.error, fontWeight: 900, fontSize: 12 }}>Gemini fallback used. {aiError}</div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -450,6 +477,11 @@ export default function AIAnalyzer() {
             </ul>
           </div>
         ) : null}
+
+        <AiChatPanel
+          deterministicReportText={deterministicReportText || 'No dataset facts available.'}
+          canUseDatasetFacts={isLocal}
+        />
       </div>
     </div>
   )

@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchLiveLocations, fetchStats, getAdminToken, type Period } from '../lib/api'
 import { fetchBusinessStats } from '../lib/businessApi'
+import { isLocalPreviewMode } from '../lib/localPreview'
+import { getLocalPreviewMonthBreakdownBase, type LocalPreviewMonthBreakdownBase } from '../lib/localPreviewData'
 import { theme } from '../lib/theme'
+import {
+  ensureSeededLocalPreview,
+  getEmployeeCodes,
+  getEmployeeMultiplier,
+  getDefaultEmployeeCount,
+  getDefaultAssistantCount,
+  getAssistantCodes,
+  getAssistantIndexForEmployee,
+  getAssistantProfiles,
+} from '../lib/localPreviewSeed'
 
 type StatsResponse = {
   period: Period
@@ -11,14 +23,6 @@ type StatsResponse = {
     fuelCost: number
     supplierSpend: number
   }
-  employees?: Array<{
-    employeeCode: string
-    displayName: string
-    totalHours: number
-    totalDistanceKm: number
-    totalFuelCost: number
-    totalSupplierSpend: number
-  }>
 }
 
 function GraphBar(props: { label: string; value: number; max: number }) {
@@ -67,96 +71,95 @@ function getBusinessCode(): string | null {
   }
 }
 
-type EmployeeRow = {
-  employeeCode: string
-  totalHours: number
-  normalHours: number
-  weekdayOvertimeHours: number
-  saturdayHours: number
-  sundayHours: number
-  publicHolidayHours: number
-}
-
-type AssistantRow = {
-  assistantCode: string
-  totalHours: number
-  normalHours: number
-  weekdayOvertimeHours: number
-  saturdayHours: number
-  sundayHours: number
-  publicHolidayHours: number
-}
-
-export default function Dashboard() {
+export default function DashboardLocalPreview() {
   const [period] = useState<Period>('month')
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  const [isSmallViewport, setIsSmallViewport] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return window.innerWidth <= 700
-  })
-
-  useEffect(() => {
-    const onResize = () => setIsSmallViewport(window.innerWidth <= 700)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  const [refreshTick, setRefreshTick] = useState(0)
 
   const businessCode = getBusinessCode()
 
-  const savedEmployeeCodes = useMemo(() => {
-    try {
-      if (!businessCode) return []
-      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_employee_codes_csv`) ?? ''
-      return raw
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean)
-    } catch {
-      return []
-    }
-  }, [businessCode])
+  useEffect(() => {
+    if (!isLocalPreviewMode()) return
+    ensureSeededLocalPreview()
+    setRefreshTick((t) => t + 1)
+  }, [])
 
-  const savedAssistantCodes = useMemo(() => {
-    try {
-      if (!businessCode) return []
-      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_assistant_codes_csv`) ?? ''
-      return raw
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean)
-    } catch {
-      return []
-    }
-  }, [businessCode])
+  const localPreview = isLocalPreviewMode()
+  const localBase: LocalPreviewMonthBreakdownBase = useMemo(() => getLocalPreviewMonthBreakdownBase(), [refreshTick])
 
-  const employeeRows = useMemo<EmployeeRow[]>(() => {
-    const byCode = new Map<string, NonNullable<StatsResponse['employees']>[number]>(
-      (stats?.employees ?? []).map((e) => [e.employeeCode, e])
-    )
+  const employeeCodes = useMemo(() => getEmployeeCodes(getDefaultEmployeeCount()), [refreshTick])
+  const assistantCodes = useMemo(() => getAssistantCodes(getDefaultAssistantCount()), [refreshTick])
 
-    return savedEmployeeCodes.map((employeeCode) => {
-      const e = byCode.get(employeeCode)
+  const employeeRows = useMemo(() => {
+    const codes = employeeCodes
+    return codes.map((code, idx) => {
+      const m = getEmployeeMultiplier(idx + 1)
 
-      const totalHours = e?.totalHours ?? 0
+      const totalHours = round2(localBase.totalHours * m)
+      const normalHours = round2(localBase.normalHours * m)
+      const weekdayOvertimeHours = round2(localBase.weekdayOvertimeHours * m)
+      const saturdayHours = round2(localBase.saturdayHours * m)
+      const sundayHours = round2(localBase.sundayHours * m)
+      const publicHolidayHours = round2(localBase.publicHolidayHours * m)
 
-      // Backend only provides totalHours; keep breakdown cells at 0 for now.
       return {
-        employeeCode,
+        employeeCode: code,
         totalHours,
-        normalHours: 0,
-        weekdayOvertimeHours: 0,
-        saturdayHours: 0,
-        sundayHours: 0,
-        publicHolidayHours: 0,
+        normalHours,
+        weekdayOvertimeHours,
+        saturdayHours,
+        sundayHours,
+        publicHolidayHours,
+        multiplier: m,
       }
     })
-  }, [savedEmployeeCodes, stats])
+  }, [localBase, employeeCodes])
 
-  const assistantRows = useMemo<AssistantRow[]>(() => {
-    return savedAssistantCodes.map((assistantCode) => ({
+  // Template totals
+  const displayedStats = useMemo(() => {
+    const sumMultiplier = Array.from({ length: employeeCodes.length }, (_, i) => getEmployeeMultiplier(i + 1)).reduce((a, b) => a + b, 0)
+    return {
+      totalHours: employeeRows.reduce((acc, e) => acc + e.totalHours, 0),
+      fuelCost: Math.round(localBase.fuelCost * sumMultiplier * 100) / 100,
+      supplierSpend: Math.round(localBase.supplierSpend * sumMultiplier * 100) / 100,
+    }
+  }, [localBase, employeeRows, employeeCodes])
+
+  const assistantProfiles = useMemo(() => {
+    try {
+      if (!businessCode) return getAssistantProfiles()
+
+      const raw = localStorage.getItem(`ddworkrecord_business_${businessCode}_ddworkrecord_assistant_profiles_json`) ?? ''
+      if (!raw) return getAssistantProfiles()
+
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return getAssistantProfiles()
+
+      const profiles = parsed
+        .map((item) => item as Record<string, unknown>)
+        .filter((v) => typeof v === 'object' && v !== null)
+        .map((v) => {
+          const codeRaw = v.code
+          const firstRaw = v.firstName
+          const lastRaw = v.lastName
+          if (typeof codeRaw !== 'string' || typeof firstRaw !== 'string' || typeof lastRaw !== 'string') return null
+          return { code: codeRaw.trim().toUpperCase(), firstName: firstRaw.trim(), lastName: lastRaw.trim() }
+        })
+        .filter((p): p is { code: string; firstName: string; lastName: string } => p !== null)
+
+      return profiles.length ? profiles : getAssistantProfiles()
+    } catch {
+      return getAssistantProfiles()
+    }
+  }, [businessCode, refreshTick])
+
+  const assistantRows = useMemo(() => {
+    if (!assistantCodes.length) return []
+
+    const assistantCount = assistantCodes.length
+    const totalsByAssistant = assistantCodes.map((assistantCode) => ({
       assistantCode,
       totalHours: 0,
       normalHours: 0,
@@ -165,37 +168,50 @@ export default function Dashboard() {
       sundayHours: 0,
       publicHolidayHours: 0,
     }))
-  }, [savedAssistantCodes])
 
-  const cloudTotals = useMemo(() => {
-    return {
-      totalHours: stats?.grandTotals?.totalHours ?? 0,
-      fuelCost: stats?.grandTotals?.fuelCost ?? 0,
-      supplierSpend: stats?.grandTotals?.supplierSpend ?? 0,
+    for (let i = 0; i < employeeRows.length; i++) {
+      const employeeIndex1Based = i + 1
+      const assistantIndex1Based = getAssistantIndexForEmployee(employeeIndex1Based, assistantCount)
+      const row = employeeRows[i]
+      const target = totalsByAssistant[assistantIndex1Based - 1]
+
+      target.totalHours += row.totalHours
+      target.normalHours += row.normalHours
+      target.weekdayOvertimeHours += row.weekdayOvertimeHours
+      target.saturdayHours += row.saturdayHours
+      target.sundayHours += row.sundayHours
+      target.publicHolidayHours += row.publicHolidayHours
     }
-  }, [stats])
+
+    return totalsByAssistant.map((r) => ({
+      ...r,
+      totalHours: round2(r.totalHours),
+      normalHours: round2(r.normalHours),
+      weekdayOvertimeHours: round2(r.weekdayOvertimeHours),
+      saturdayHours: round2(r.saturdayHours),
+      sundayHours: round2(r.sundayHours),
+      publicHolidayHours: round2(r.publicHolidayHours),
+    }))
+  }, [employeeRows, assistantCodes])
 
   const refresh = async () => {
     setError(null)
-
-    const adminToken = getAdminToken()
-    const businessCodeLocal = getBusinessCode()
-
-    // Live mode: allow either admin token (Firebase JWT) OR business access code.
-    if (!adminToken && !businessCodeLocal) {
-      setLoading(false)
-      setError('Missing auth. Please log in (admin token or business code).')
-      window.location.hash = '#login'
-      return
-    }
-
     setLoading(true)
     try {
-      if (adminToken) {
+      // In local preview we always ensure seeded drafts exist and then re-render derived totals.
+      if (localPreview) {
+        ensureSeededLocalPreview()
+        setRefreshTick((t) => t + 1)
+        return
+      }
+
+      // Keep legacy behavior in case this component is ever rendered in live mode.
+      const adminToken = getAdminToken()
+      if (!localPreview && adminToken) {
         const s = await fetchStats(period)
         setStats(s)
         await fetchLiveLocations().catch(() => undefined)
-      } else if (businessCodeLocal) {
+      } else if (!localPreview && businessCode) {
         const s = await fetchBusinessStats(period)
         setStats(s as unknown as StatsResponse)
       }
@@ -207,20 +223,15 @@ export default function Dashboard() {
     }
   }
 
-  useEffect(() => {
-    void refresh()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const totalFuelForCharts = cloudTotals.fuelCost
-  const totalSupplierForCharts = cloudTotals.supplierSpend
+  const totalFuelForCharts = displayedStats.fuelCost
+  const totalSupplierForCharts = displayedStats.supplierSpend
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0 }}>Main Dashboard</h1>
-          <p style={{ marginTop: 6, color: '#475569' }}>Month view (Live Data)</p>
+          <p style={{ marginTop: 6, color: '#475569' }}>Month view (Sandbox Mode)</p>
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -298,7 +309,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ marginTop: 12, border: `2px solid ${theme.text}`, borderRadius: theme.radiusMd, background: theme.surface, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isSmallViewport ? 520 : 920 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 920 }}>
             <thead>
               <tr style={{ background: theme.pageBg }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: `2px solid ${theme.text}`, fontWeight: 1000, color: theme.text }}>Employee</th>
@@ -343,13 +354,6 @@ export default function Dashboard() {
                   <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
                 </tr>
               ))}
-              {employeeRows.length === 0 ? (
-                <tr>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }} colSpan={7}>
-                    No employees saved for this business.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
@@ -358,11 +362,11 @@ export default function Dashboard() {
       <div style={{ marginTop: 18 }}>
         <div style={{ fontWeight: 1000, fontSize: 16 }}>Assistants (Hours)</div>
         <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
-          Live mode: assistant hours are not computed (no backend endpoint wired for assistant breakdown yet).
+          Local preview only • assistant hours are computed from assigned employees’ logs (no assistant records saved)
         </div>
 
         <div style={{ marginTop: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isSmallViewport ? 520 : 640 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th style={{ textAlign: 'left', padding: 12, borderBottom: '2px solid #0f172a', fontWeight: 1000 }}>Assistant</th>
@@ -375,45 +379,58 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {assistantRows.map((row) => (
-                <tr key={row.assistantCode}>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.hash = `#assistant/${row.assistantCode}`
-                      }}
-                      style={{
-                        display: 'inline-block',
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '6px 8px',
-                        border: '2px solid #0f172a',
-                        borderRadius: 10,
-                        background: '#fff',
-                        cursor: 'pointer',
-                        fontWeight: 1000,
-                        color: '#0f172a',
-                      }}
-                    >
-                      {row.assistantCode}
-                    </button>
-                  </td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.totalHours)}</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.normalHours)}</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.weekdayOvertimeHours)}</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.saturdayHours)}</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.sundayHours)}</td>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
-                </tr>
-              ))}
-              {assistantRows.length === 0 ? (
+              {assistantRows.length ? (
+                assistantRows.map((row) => (
+                  <tr key={row.assistantCode}>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#assistant/${row.assistantCode}`
+                        }}
+                        style={{
+                          display: 'inline-block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '6px 8px',
+                          border: '2px solid #0f172a',
+                          borderRadius: 10,
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontWeight: 1000,
+                          color: '#0f172a',
+                        }}
+                      >
+                        {(() => {
+                          const code = row.assistantCode.toUpperCase()
+                          const match = assistantProfiles.find((p) => p.code.toUpperCase() === code)
+                          const first = match?.firstName?.trim()
+                          const last = match?.lastName?.trim()
+
+                          if (first || last) return `${row.assistantCode} (${[first, last].filter(Boolean).join(' ')})`
+                          return row.assistantCode
+                        })()}
+                      </button>
+                    </td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.totalHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.normalHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.weekdayOvertimeHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.saturdayHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.sundayHours)}</td>
+                    <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>{format2(row.publicHolidayHours)}</td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }} colSpan={7}>
-                    No assistant codes saved for this business.
-                  </td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', fontWeight: 900 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
+                  <td style={{ padding: 12, borderBottom: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 1000 }}>—</td>
                 </tr>
-              ) : null}
+              )}
             </tbody>
           </table>
         </div>
@@ -426,24 +443,24 @@ export default function Dashboard() {
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
             <div style={{ color: '#64748b', fontWeight: 800 }}>Total Fuel Expenses</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(cloudTotals.fuelCost)}</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(displayedStats.fuelCost)}</div>
           </div>
 
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
             <div style={{ color: '#64748b', fontWeight: 800 }}>Total Supplier Expenses</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(cloudTotals.supplierSpend)}</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(displayedStats.supplierSpend)}</div>
           </div>
 
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
             <div style={{ color: '#64748b', fontWeight: 800 }}>Total Expenses (Fuel + Supplier)</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(cloudTotals.fuelCost + cloudTotals.supplierSpend)}</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000 }}>{format2(displayedStats.fuelCost + displayedStats.supplierSpend)}</div>
           </div>
         </div>
       </div>
 
       <div style={{ marginTop: 18 }}>
         <div style={{ fontWeight: 1000, fontSize: 16 }}>Quick Visuals</div>
-        <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>Quick charts</div>
+        <div style={{ marginTop: 6, color: '#64748b', fontWeight: 800, fontSize: 12 }}>Quick charts for design iteration (sandbox-safe)</div>
 
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           <div style={{ padding: 12, border: '2px solid #0f172a', borderRadius: 12, background: '#fff' }}>
@@ -461,6 +478,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/**
+       * NOTE: iOS has its own pages for employee/assistant detail views;
+       * those pages also use local preview modules. This split only affects
+       * bundling of template seed code into the main live dashboard entry.
+       */}
     </div>
   )
 }

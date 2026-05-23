@@ -31,7 +31,7 @@ function getBotResponse(input: string, businessCodePresent: boolean): string {
     return [
       'Business access is based on your unique business code.',
       businessLinks,
-      'If you need admin access: use #/login to authenticate (Google or email/password).',
+      'If you need access/help, use #business-login for your business account.',
     ].join('\n\n')
   }
 
@@ -59,7 +59,7 @@ function getBotResponse(input: string, businessCodePresent: boolean): string {
   }
 
   if (t.includes('token') || t.includes('jwt') || t.includes('admin')) {
-    return 'Admin access is via sign-in now. Open #/login to authenticate (Google or email/password).'
+    return 'This is the business portal. Use #business-login (your business code/account).'
   }
 
   // Default:
@@ -73,7 +73,6 @@ function getBotResponse(input: string, businessCodePresent: boolean): string {
 
 export default function Home() {
   const businessCode = useMemo(() => safeGetItem('ddworkrecord_business_code'), [])
-  const adminToken = useMemo(() => safeGetItem('ddworkrecord_admin_token'), [])
 
   const [chatOpen, setChatOpen] = useState(true)
   const [chatInput, setChatInput] = useState('')
@@ -225,21 +224,6 @@ export default function Home() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <a
-              href="#/login"
-              style={{
-                padding: '10px 14px',
-                borderRadius: 14,
-                border: '1px solid rgba(15,23,42,0.15)',
-                background: '#fff',
-                color: '#0f172a',
-                textDecoration: 'none',
-                fontWeight: 950,
-              }}
-            >
-              Admin Login
-            </a>
-
-            <a
               href="#business-login"
               style={{
                 padding: '10px 14px',
@@ -254,23 +238,6 @@ export default function Home() {
             >
               Business portal
             </a>
-
-            {adminToken ? (
-              <a
-                href="#dashboard"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(15,23,42,0.15)',
-                  background: '#fff',
-                  color: '#0f172a',
-                  textDecoration: 'none',
-                  fontWeight: 950,
-                }}
-              >
-                Admin Dashboard
-              </a>
-            ) : null}
           </div>
         </div>
       </div>
@@ -607,8 +574,7 @@ export default function Home() {
                 <div style={{ marginTop: 10, color: '#9a3412', fontWeight: 900, fontSize: 12.3, lineHeight: 1.5 }}>
                   Quick links: <a href="#business-register" style={{ color: '#9a3412', textDecoration: 'underline' }}>#business-register</a> ·{' '}
                   <a href="#business-login" style={{ color: '#9a3412', textDecoration: 'underline' }}>#business-login</a> ·{' '}
-                  <a href="#business-dashboard" style={{ color: '#9a3412', textDecoration: 'underline' }}>#business-dashboard</a> ·{' '}
-                  <a href="#/login" style={{ color: '#9a3412', textDecoration: 'underline' }}>#/login</a>
+                  <a href="#business-dashboard" style={{ color: '#9a3412', textDecoration: 'underline' }}>#business-dashboard</a>
                 </div>
               </div>
             ) : null}
@@ -618,9 +584,9 @@ export default function Home() {
         {/* Footer */}
         <div style={{ marginTop: 18, color: '#64748b', fontWeight: 850, fontSize: 12.5, lineHeight: 1.6, paddingBottom: 26 }}>
           <div>
-            Admin access is via sign-in. Use{' '}
-            <a href="#/login" style={{ color: '#0f172a', fontWeight: 1050, textDecoration: 'underline' }}>
-              #/login
+            Business portal uses your business account/code. Use{' '}
+            <a href="#business-login" style={{ color: '#0f172a', fontWeight: 1050, textDecoration: 'underline' }}>
+              #business-login
             </a>
             .
           </div>

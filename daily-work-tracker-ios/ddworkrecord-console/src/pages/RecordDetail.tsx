@@ -33,6 +33,7 @@ type LiveWorkday = {
   endNotes?: string | null
   dayStartLocation?: unknown
   dayEndLocation?: unknown
+  attachmentUrls?: string[]
 }
 
 type TimelineEvent = {
@@ -125,14 +126,16 @@ export default function RecordDetail() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+
   const recordId = useMemo(() => parseRecordIdFromHash(), [window.location.hash])
   const isLocalPreview = isLocalPreviewMode()
 
-  const localRecords = useMemo(() => getLocalPreviewWorkdays(), [])
+  const localRecords = useMemo(() => (isLocalPreview ? getLocalPreviewWorkdays() : []), [isLocalPreview])
   const localRecord = useMemo(() => {
     if (!recordId) return null
+    if (!isLocalPreview) return null
     return localRecords.find((r) => r.id === recordId) ?? null
-  }, [recordId, localRecords])
+  }, [recordId, isLocalPreview, localRecords])
 
   const [liveRecord, setLiveRecord] = useState<LiveWorkday | null>(null)
 
@@ -181,8 +184,11 @@ export default function RecordDetail() {
     window.location.hash = '#records'
   }
 
-  const recordTitle = localRecord
-    ? { date: localRecord.date, employeeCode: localRecord.employeeCode, startTime: localRecord.startTime, endTime: localRecord.endTime }
+
+  const recordTitle = isLocalPreview
+    ? localRecord
+      ? { date: localRecord.date, employeeCode: localRecord.employeeCode, startTime: localRecord.startTime, endTime: localRecord.endTime }
+      : null
     : liveRecord
       ? { date: liveRecord.date, employeeCode: liveRecord.employeeId, startTime: '', endTime: '' }
       : null
@@ -445,8 +451,8 @@ export default function RecordDetail() {
     return points
   }, [isLocalPreview, liveRecord])
 
-  const receiptsUrls = localRecord?.attachmentUrls ?? []
-  const receiptsCount = localRecord?.attachmentUrls.length ?? 0
+  const receiptsUrls = isLocalPreview ? localRecord?.attachmentUrls ?? [] : liveRecord?.attachmentUrls ?? []
+  const receiptsCount = receiptsUrls.length
 
   if (!recordId) {
     return (
@@ -710,32 +716,26 @@ export default function RecordDetail() {
       </div>
 
       <div style={{ marginTop: 14, border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-        <div style={{ padding: 14, borderBottom: '2px solid #0f172a', background: '#f8fafc' }}>
+          <div style={{ padding: 14, borderBottom: '2px solid #0f172a', background: '#f8fafc' }}>
           <div style={{ fontWeight: 1000 }}>Receipts / Invoices</div>
           <div style={{ marginTop: 4, color: '#64748b', fontWeight: 800, fontSize: 12 }}>
-            {isLocalPreview ? `${receiptsCount} attachment(s)` : '— synced receipts not wired yet'}
+            {receiptsCount === 0 ? '— no attachments found' : `${receiptsCount} attachment(s)`}
           </div>
         </div>
 
         <div style={{ padding: 14 }}>
-          {isLocalPreview ? (
-            receiptsUrls.length === 0 ? (
-              <div style={{ padding: 12, border: '2px dashed #0f172a', borderRadius: 12, fontWeight: 900, color: '#64748b' }}>
-                No receipt photos for this sandbox record.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                {receiptsUrls.map((url, i) => (
-                  <div key={`${url}-${i}`} style={{ border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
-                    <img src={url} alt={`receipt-${i + 1}`} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
-                    <div style={{ padding: 10, fontSize: 12, fontWeight: 900, color: '#0f172a' }}>Receipt #{i + 1}</div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
+          {receiptsUrls.length === 0 ? (
             <div style={{ padding: 12, border: '2px dashed #0f172a', borderRadius: 12, fontWeight: 900, color: '#64748b' }}>
-              Synced receipt URLs not yet included in this backend response.
+              No receipt photos found for this record.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              {receiptsUrls.map((url, i) => (
+                <div key={`${url}-${i}`} style={{ border: '2px solid #0f172a', borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
+                  <img src={url} alt={`receipt-${i + 1}`} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                  <div style={{ padding: 10, fontSize: 12, fontWeight: 900, color: '#0f172a' }}>Receipt #{i + 1}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>

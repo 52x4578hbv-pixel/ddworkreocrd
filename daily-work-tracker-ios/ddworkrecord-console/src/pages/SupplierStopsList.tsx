@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { getLocalPreviewWorkdays, type SupplierStop } from '../lib/localPreviewData'
-import { getDefaultEmployeeCount, getEmployeeCodes } from '../lib/localPreviewSeed'
+import { useEffect, useMemo, useState } from 'react'
+import type { SupplierStop, LocalPreviewWorkday } from '../lib/localPreviewData'
+import { businessWorkdayToLocalPreviewWorkday } from '../lib/businessToLocalPreview'
+import { fetchBusinessWorkdays, getBusinessCode } from '../lib/businessApi'
 import { theme } from '../lib/theme'
 
 function includesCI(haystack: string, needle: string): boolean {
@@ -29,8 +30,50 @@ function ReceiptCount({ ids }: { ids: string[] }) {
 }
 
 export default function SupplierStopsList() {
-  const EMPLOYEE_COUNT = getDefaultEmployeeCount()
-  const employeeCodes = useMemo(() => getEmployeeCodes(EMPLOYEE_COUNT), [EMPLOYEE_COUNT])
+  const [liveWorkdays, setLiveWorkdays] = useState<LocalPreviewWorkday[]>([])
+  const [employeeCodes, setEmployeeCodes] = useState<string[]>([])
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const businessCode = getBusinessCode()
+        if (!businessCode) {
+          setLiveWorkdays([])
+          setEmployeeCodes([])
+          window.location.hash = '#business-login'
+          return
+        }
+
+        const now = new Date()
+        const endDate = now.toISOString().slice(0, 10)
+        const start = new Date(now)
+        start.setUTCDate(start.getUTCDate() - 90)
+        const startDate = start.toISOString().slice(0, 10)
+
+        const businessWorkdays = await fetchBusinessWorkdays({
+          range: { startDate, endDate },
+        })
+
+        const mapped = (Array.isArray(businessWorkdays) ? businessWorkdays : []).map((w) =>
+          businessWorkdayToLocalPreviewWorkday(w),
+        )
+
+        const uniq = new Set<string>()
+        for (const w of mapped) {
+          if (w.employeeCode) uniq.add(w.employeeCode)
+        }
+
+        setLiveWorkdays(mapped as unknown as LocalPreviewWorkday[])
+        setEmployeeCodes(Array.from(uniq).sort((a, b) => a.localeCompare(b)))
+      } catch {
+        // ignore (UI will just show empty until data arrives)
+      }
+    }
+
+    void run()
+  }, [])
+
+  const workdays = liveWorkdays
 
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all')
   const [fromDate, setFromDate] = useState<string>('') // YYYY-MM-DD
@@ -38,12 +81,11 @@ export default function SupplierStopsList() {
   const [supplierSearch, setSupplierSearch] = useState<string>('') // substring
   const [jobIdSearch, setJobIdSearch] = useState<string>('') // substring
 
-  const workdays = useMemo(() => getLocalPreviewWorkdays(), [])
   const rows = useMemo(() => {
     const from = fromDate.trim()
     const to = toDate.trim()
 
-    const filteredWorkdays = workdays.filter((w) => {
+    return workdays.filter((w) => {
       if (selectedEmployee !== 'all' && w.employeeCode !== selectedEmployee) return false
       if (from && w.date < from) return false
       if (to && w.date > to) return false
@@ -62,17 +104,15 @@ export default function SupplierStopsList() {
 
       return true
     })
-
-    return filteredWorkdays
   }, [workdays, selectedEmployee, fromDate, toDate, supplierSearch, jobIdSearch])
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24, maxWidth: 980, margin: '0 auto', background: theme.pageBg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ margin: 0 }}>Supplier Stops (Sandbox)</h1>
+          <h1 style={{ margin: 0 }}>Supplier Stops (Live)</h1>
           <p style={{ marginTop: 8, color: '#475569', fontWeight: 800, fontSize: 12 }}>
-            Mirrors iOS SupplierScreen stop-level fields (per-workday rows).
+            Mirrors backend business workdays: /api/v1/business/workdays.
           </p>
         </div>
 
@@ -197,7 +237,6 @@ export default function SupplierStopsList() {
             />
           </div>
         </div>
-
       </div>
 
       <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
@@ -293,6 +332,7 @@ function SupplierStopCard({ stop, index }: { stop: SupplierStop; index: number }
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>Start mileage</div>
           <div style={{ marginTop: 6, fontWeight: 1000 }}>{fmtMiles(stop.startMileage)}</div>
         </div>
+
         <div style={{ padding: 10, border: '2px solid #0f172a', borderRadius: 10, background: '#f8fafc' }}>
           <div style={{ color: '#64748b', fontWeight: 900, fontSize: 12 }}>End mileage</div>
           <div style={{ marginTop: 6, fontWeight: 1000 }}>{fmtMiles(stop.endMileage)}</div>
